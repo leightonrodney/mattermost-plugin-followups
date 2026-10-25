@@ -246,6 +246,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and pull requests are welcome.
 - [docs/TESTING.md](docs/TESTING.md) — what is tested and how to run it
 - [docs/RESEARCH.md](docs/RESEARCH.md) — the API research this was built on
 - [docs/RELEASE.md](docs/RELEASE.md) — packaging, releasing, Marketplace submission
+- [docs/ROADMAP.md](docs/ROADMAP.md) — what is recommended next, and what was left out on purpose
 
 ## License
 

@@ -153,6 +153,17 @@ func (s *service) Create(userID string, input createInput) (*reminder.Reminder, 
 		return nil, userError{validationErr}
 	}
 
+	// A cheap read-only quota check before anything is written. The
+	// authoritative one runs inside the compare-and-set below, which is what
+	// makes the limit exact; this one only stops a request that is certain to
+	// be refused from leaving an index entry behind. Without it, repeatedly
+	// hitting a full quota would grow the index bucket for no reason.
+	if record, readErr := s.store.GetUser(userID); readErr == nil {
+		if quotaErr := checkQuota(record, rec, config); quotaErr != nil {
+			return nil, quotaErr
+		}
+	}
+
 	if indexErr := s.store.Index(userID, rec.ID, input.DueAt); indexErr != nil {
 		return nil, indexErr
 	}
