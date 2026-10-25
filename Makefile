@@ -346,6 +346,27 @@ detach: setup-attach
 		kill -9 $$DELVE_PID ; \
 	fi
 
+## Brings up a local Mattermost server in Docker, with an admin account, a team
+## and a second user ready to go. See dev/docker-compose.yml.
+.PHONY: dev-server
+dev-server:
+	./dev/up.sh
+
+## Stops the local server, keeping its data.
+.PHONY: dev-server-stop
+dev-server-stop:
+	cd dev && docker compose stop
+
+## Stops the local server and deletes its data, for a clean start.
+.PHONY: dev-server-clean
+dev-server-clean:
+	cd dev && docker compose down -v
+
+## Tails the local server's logs.
+.PHONY: dev-server-logs
+dev-server-logs:
+	cd dev && docker compose logs -f mattermost
+
 ## Runs the server and webapp unit tests. These need nothing but Go and npm:
 ## no Docker, no database and no running Mattermost.
 .PHONY: test

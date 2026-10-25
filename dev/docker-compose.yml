@@ -1,0 +1,82 @@
+# A local Mattermost server for working on this plugin.
+#
+#   make dev-server        bring it up and create an admin account
+#   make deploy            build the plugin and install it into that server
+#   make dev-server-stop   stop it, keeping the data
+#   make dev-server-clean  stop it and delete the data
+#
+# This is for development only. It runs over plain HTTP, has fixed credentials
+# in the file below, and enables local mode so that mmctl can administer the
+# server over a socket without a token. None of that belongs anywhere real.
+#
+# The integration tests do not use this file: they start their own throwaway
+# containers through testcontainers. This is the server you click around in.
+
+name: followups-dev
+
+services:
+  postgres:
+    # Matches the version the integration tests run against, so the two do not
+    # disagree about database behaviour.
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mmuser
+      POSTGRES_PASSWORD: mmuser-password
+      POSTGRES_DB: mattermost
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mmuser -d mattermost']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mattermost:
+    # Override the version to test against another release, for example:
+    #   MM_VERSION=9.5 make dev-server
+    # 9.5 is this plugin's declared min_server_version, so it is worth a pass
+    # before a release.
+    image: mattermost/mattermost-team-edition:${MM_VERSION:-12.0}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '8065:8065'
+    environment:
+      MM_SQLSETTINGS_DRIVERNAME: postgres
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mmuser-password@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SERVICESETTINGS_SITEURL: http://localhost:8065
+
+      # Lets mmctl administer the server over a unix socket, so creating the
+      # admin account needs no token and no click-through.
+      MM_SERVICESETTINGS_ENABLELOCALMODE: 'true'
+      MM_SERVICESETTINGS_LOCALMODESOCKETLOCATION: /var/tmp/mattermost_local.socket
+
+      # Without this the System Console refuses a plugin upload, which is the
+      # whole point of this server.
+      MM_PLUGINSETTINGS_ENABLEUPLOADS: 'true'
+      MM_PLUGINSETTINGS_ENABLE: 'true'
+
+      # Surfaces plugin panics and the like instead of swallowing them.
+      MM_LOGSETTINGS_CONSOLELEVEL: DEBUG
+      MM_LOGSETTINGS_ENABLEDIAGNOSTICS: 'false'
+    volumes:
+      - mattermost-data:/mattermost/data
+      - mattermost-config:/mattermost/config
+      - mattermost-plugins:/mattermost/plugins
+      - mattermost-client-plugins:/mattermost/client/plugins
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8065/api/v4/system/ping || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+volumes:
+  postgres-data:
+  mattermost-data:
+  mattermost-config:
+  mattermost-plugins:
+  mattermost-client-plugins:

@@ -63,6 +63,41 @@ docs/
 `plugin.json` by `make apply`. They are gitignored; do not edit them, and run
 `make apply` before `go build` or `tsc` in a fresh checkout.
 
+## A local server to test against
+
+If you do not already have a Mattermost server to work against, this repository
+brings one up:
+
+```bash
+make dev-server
+```
+
+That starts Mattermost and Postgres in Docker, waits for them, and creates a
+system admin, a second user and a team. It prints the credentials when it
+finishes. The second user is not decoration: the plugin's security model is
+that one person cannot see another's reminders, and checking that needs two
+accounts.
+
+```bash
+make dev-server-logs    # follow the server log
+make dev-server-stop    # stop it, keeping the data
+make dev-server-clean   # stop it and wipe the data
+```
+
+Any Docker-compatible runtime works — OrbStack, Docker Desktop, colima. The
+server listens on <http://localhost:8065> over plain HTTP with fixed passwords,
+which is fine for a throwaway and fine nowhere else.
+
+To try another Mattermost release:
+
+```bash
+MM_VERSION=9.5 make dev-server-clean dev-server   # the declared minimum
+MM_VERSION=11.7 make dev-server-clean dev-server  # the current ESR
+```
+
+Wipe the data when changing version. Mattermost migrates a database forward on
+start but not backward, so an older image will refuse a newer schema.
+
 ## Deploying to a development server
 
 Set credentials for your server, then:

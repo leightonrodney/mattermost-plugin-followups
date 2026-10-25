@@ -193,6 +193,18 @@ To run it:
 make test-integration
 ```
 
+By default the suite pulls `mattermost/mattermost-enterprise-edition:latest`.
+`MM_TEST_IMAGE` overrides that, which is how to check the declared
+`min_server_version` rather than merely asserting it:
+
+```bash
+MM_TEST_IMAGE=mattermost/mattermost-team-edition:9.5 make test-integration
+MM_TEST_IMAGE=mattermost/mattermost-team-edition:11.7 make test-integration
+```
+
+Worth running across 9.5 (the declared minimum), the current ESR and latest
+before a release.
+
 It takes several minutes: it pulls a Mattermost image, resets the database
 between tests, and the delivery test waits for a real scheduler tick.
 
