@@ -1,0 +1,159 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# The workflow only reads the repository. Publishing happens in release.yml,
+# which asks for write access explicitly.
+permissions:
+  contents: read
+
+env:
+  # Keeps the toolchain in step with go.mod rather than pinning it twice.
+  GOFLAGS: -mod=readonly
+
+jobs:
+  check-style:
+    name: Lint and type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Validate the plugin manifest
+        run: make manifest-check
+
+      - name: Generate the manifest sources
+        run: make apply
+
+      - name: Check Go formatting
+        run: |
+          unformatted="$(gofmt -l server build)"
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet the server
+        run: go vet ./server/...
+
+      - name: Lint the server
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.15.0
+
+      - name: Install webapp dependencies
+        run: npm ci
+        working-directory: webapp
+
+      - name: Lint the webapp
+        run: npm run lint
+        working-directory: webapp
+
+      - name: Type-check the webapp
+        run: npm run check-types
+        working-directory: webapp
+
+  test-server:
+    name: Server tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Generate the manifest sources
+        run: make apply
+
+      # The race detector is not optional here: the scheduler, the compare-and-set
+      # loops and the delivery claim protocol are the parts most worth testing,
+      # and they are all concurrent.
+      - name: Run the server tests
+        run: go test -race -count 1 ./server/...
+
+  test-webapp:
+    name: Webapp tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Generate the manifest sources
+        run: make apply
+
+      - name: Install webapp dependencies
+        run: npm ci
+        working-directory: webapp
+
+      - name: Run the webapp tests
+        run: npm run test-ci
+        working-directory: webapp
+
+  build:
+    name: Build the plugin bundle
+    runs-on: ubuntu-latest
+    needs:
+      - check-style
+      - test-server
+      - test-webapp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Build the bundle
+        run: make dist
+
+      - name: Check the bundle contains what the manifest promises
+        run: ./build/check-bundle.sh
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum ./*.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-bundle
+          path: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          if-no-files-found: error
+          retention-days: 14

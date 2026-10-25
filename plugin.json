@@ -1,0 +1,85 @@
+{
+    "id": "com.github.leightonrodney.followups",
+    "name": "Follow-ups & Reminders",
+    "description": "Create one-time and recurring reminders from slash commands or any message, and manage them from a Mattermost-native sidebar. No external services required.",
+    "homepage_url": "https://github.com/leightonrodney/mattermost-plugin-followups",
+    "support_url": "https://github.com/leightonrodney/mattermost-plugin-followups/issues",
+    "release_notes_url": "https://github.com/leightonrodney/mattermost-plugin-followups/releases/tag/v0.1.0",
+    "icon_path": "assets/icon.svg",
+    "version": "0.1.0",
+    "min_server_version": "9.5.0",
+    "server": {
+        "executables": {
+            "linux-amd64": "server/dist/plugin-linux-amd64",
+            "linux-arm64": "server/dist/plugin-linux-arm64",
+            "darwin-amd64": "server/dist/plugin-darwin-amd64",
+            "darwin-arm64": "server/dist/plugin-darwin-arm64",
+            "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+        }
+    },
+    "webapp": {
+        "bundle_path": "webapp/dist/main.js"
+    },
+    "settings_schema": {
+        "header": "Create one-time and recurring reminders with the **/remind** slash command, or from any message's **...** menu. Reminders are delivered as direct messages from the Follow-ups bot and are stored in this plugin's key-value store \u2014 no external service is contacted.",
+        "footer": "Changes to every setting take effect immediately, except **Scheduler interval**, which is applied on the next scheduler tick. See the [documentation](https://github.com/leightonrodney/mattermost-plugin-followups#configuration) for details.",
+        "settings": [
+            {
+                "key": "EnableScheduler",
+                "display_name": "Enable reminder delivery",
+                "type": "bool",
+                "help_text": "When disabled, users can still create and manage reminders but nothing is delivered. Reminders that come due while delivery is off are delivered late, once it is re-enabled, subject to the missed-reminder grace period.",
+                "default": true
+            },
+            {
+                "key": "SchedulerIntervalSeconds",
+                "display_name": "Scheduler interval (seconds)",
+                "type": "number",
+                "help_text": "How often the cluster-wide scheduler wakes to deliver due reminders. Lower values deliver closer to the requested minute at the cost of more key-value reads. Clamped to 10-900 seconds. Applied on the next tick.",
+                "default": 30
+            },
+            {
+                "key": "MaxRemindersPerUser",
+                "display_name": "Maximum active reminders per user",
+                "type": "number",
+                "help_text": "Upper bound on scheduled (not yet delivered) reminders a single user may hold. Clamped to 1-10000.",
+                "default": 100
+            },
+            {
+                "key": "MaxRecurringRemindersPerUser",
+                "display_name": "Maximum recurring reminders per user",
+                "type": "number",
+                "help_text": "Upper bound on repeating reminders a single user may hold. Counts toward the overall per-user limit as well. Clamped to 0-1000.",
+                "default": 20
+            },
+            {
+                "key": "MinIntervalSeconds",
+                "display_name": "Minimum scheduling interval (seconds)",
+                "type": "number",
+                "help_text": "The soonest a reminder may be scheduled, and the shortest permitted gap between occurrences of a recurring reminder. Clamped to 30-86400 seconds.",
+                "default": 60
+            },
+            {
+                "key": "MaxHorizonDays",
+                "display_name": "Maximum reminder horizon (days)",
+                "type": "number",
+                "help_text": "The furthest into the future a reminder may be scheduled. Recurring reminders are only ever materialised one occurrence ahead, so this bounds the first occurrence. Clamped to 1-3650 days.",
+                "default": 730
+            },
+            {
+                "key": "CompletedRetentionDays",
+                "display_name": "Completed reminder retention (days)",
+                "type": "number",
+                "help_text": "How long delivered, cancelled, and failed reminders are kept before the scheduler purges them. Set to 0 to purge as soon as they are finished. Clamped to 0-365 days.",
+                "default": 30
+            },
+            {
+                "key": "EnableDebugLogging",
+                "display_name": "Enable debug logging",
+                "type": "bool",
+                "help_text": "Logs scheduler and API activity at debug level. Reminder descriptions and message contents are never logged at any level.",
+                "default": false
+            }
+        ]
+    }
+}

@@ -1,0 +1,84 @@
+name: release
+
+# Releases are deliberately manual. Nothing is published by merging to main:
+# a maintainer pushes a signed version tag, or runs this workflow by hand.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The existing tag to build and publish, for example v0.1.0'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+
+    # Only this job can write to the repository, and only to create the release.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Check the tag matches the manifest version
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          manifest_version="v$(./build/bin/manifest version 2>/dev/null || true)"
+          if [ -z "$manifest_version" ]; then
+            make apply >/dev/null
+            manifest_version="v$(./build/bin/manifest version)"
+          fi
+          echo "tag=$tag manifest=$manifest_version"
+          if [ "$tag" != "$manifest_version" ]; then
+            echo "The tag and the version in plugin.json disagree. Bump plugin.json first."
+            exit 1
+          fi
+
+      - name: Run the tests
+        run: |
+          make apply
+          go test -race -count 1 ./server/...
+          cd webapp && npm ci && npm run test-ci
+
+      - name: Build the bundle
+        run: make dist
+
+      - name: Check the bundle contains what the manifest promises
+        run: ./build/check-bundle.sh
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum ./*.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            dist/*.tar.gz dist/checksums.txt
