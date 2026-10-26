@@ -61,6 +61,20 @@ generates `checksums.txt` and creates the GitHub release with both attached.
 Nothing publishes on a merge to `main`: a release only happens from a tag, or
 from a manual `workflow_dispatch`.
 
+Every step of that except the publish has been dry-run against a fresh clone —
+version check, tests, five-platform build, bundle validation, checksums. The
+publish itself has still never executed, so treat the first real release as
+something to watch rather than fire and forget.
+
+To repeat that dry run yourself:
+
+```bash
+git clone https://github.com/leightonrodney/mattermost-plugin-followups.git /tmp/release-check
+cd /tmp/release-check
+make apply && ./build/bin/manifest version   # must match the tag you intend
+go test ./server/... && make dist && ./build/check-bundle.sh
+```
+
 ## Signing
 
 The bundle is not signed. Mattermost supports plugin signatures for Marketplace

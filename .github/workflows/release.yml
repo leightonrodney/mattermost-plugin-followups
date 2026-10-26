@@ -43,12 +43,15 @@ jobs:
 
       - name: Check the tag matches the manifest version
         run: |
+          set -euo pipefail
           tag="${{ github.event.inputs.tag || github.ref_name }}"
-          manifest_version="v$(./build/bin/manifest version 2>/dev/null || true)"
-          if [ -z "$manifest_version" ]; then
-            make apply >/dev/null
-            manifest_version="v$(./build/bin/manifest version)"
-          fi
+
+          # build/bin is gitignored, so the manifest tool does not exist in a
+          # fresh checkout and has to be built before it can be asked anything.
+          # Any make target builds it, as a side effect of build/setup.mk.
+          make apply >/dev/null
+          manifest_version="v$(./build/bin/manifest version)"
+
           echo "tag=$tag manifest=$manifest_version"
           if [ "$tag" != "$manifest_version" ]; then
             echo "The tag and the version in plugin.json disagree. Bump plugin.json first."
