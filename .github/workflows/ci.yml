@@ -11,6 +11,12 @@ on:
 permissions:
   contents: read
 
+# Pushing twice in quick succession should not leave two of these running, now
+# that a job in here starts real Mattermost servers.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   # Keeps the toolchain in step with go.mod rather than pinning it twice.
   GOFLAGS: -mod=readonly
@@ -115,6 +121,46 @@ jobs:
       - name: Run the webapp tests
         run: npm run test-ci
         working-directory: webapp
+
+  test-integration:
+    # The suite installs the plugin into a real Mattermost server and checks,
+    # among other things, that a reminder is genuinely delivered. It is the only
+    # thing that catches a plugin which fails to activate — the kind of bug that
+    # every unit test will happily report as passing.
+    name: Integration (Mattermost ${{ matrix.mattermost }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Both versions always report. Knowing whether a failure is specific to
+      # one of them is most of the diagnosis.
+      fail-fast: false
+      matrix:
+        # The two ends of the supported range: the minimum the manifest
+        # declares, and the current release.
+        mattermost: ['9.5', 'latest']
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install webapp dependencies
+        run: npm ci
+        working-directory: webapp
+
+      # Docker is already running on the GitHub runners, and they are amd64, so
+      # the platform juggling that a developer machine needs is a no-op here.
+      - name: Run the integration suite
+        run: make test-integration MM_TEST_IMAGE=mattermost/mattermost-team-edition:${{ matrix.mattermost }}
 
   build:
     name: Build the plugin bundle

@@ -21,6 +21,11 @@ make dist
 ./build/check-bundle.sh
 ```
 
+CI already runs the integration suite against 9.5 and latest on every push to
+`main`, so a tagged commit has been through it. Running it locally is still
+worth doing before a release, because it is cheap and because a release is a
+bad moment to discover that the green tick was from three commits ago.
+
 Then, by hand on a real server, because no automated test covers these:
 
 - [ ] Upload the bundle through **System Console → Plugins** and enable it.

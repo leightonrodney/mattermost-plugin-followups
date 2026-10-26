@@ -182,6 +182,12 @@ Executed on 26 October 2026 against two versions of **Mattermost Team Edition**
 Both ends of the supported range are therefore measured rather than inferred.
 Versions in between — the 10.x and 11.x lines — have not been run.
 
+**CI runs this on every push and pull request**, as a matrix over the same two
+versions, so a change that breaks activation or delivery is caught in the pull
+request rather than at release time. The two versions report independently
+(`fail-fast: false`), because knowing whether a failure is specific to one of
+them is most of the diagnosis.
+
 It covers:
 
 - that the plugin installs into a real Mattermost server and activates;
