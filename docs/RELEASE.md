@@ -109,16 +109,20 @@ go test ./server/... && make dist && ./build/check-bundle.sh
 
 ## Signing
 
-The bundle is not signed. Mattermost supports plugin signatures for Marketplace
-distribution; if that is wanted, generate a key pair, add the private key as a
-repository secret, and extend the release workflow to sign the bundle and attach
-the `.sig`. Until then, `checksums.txt` is what verifies a download.
+The bundle is not signed, and for the public Marketplace it does not need to be.
+Mattermost builds and signs every listed plugin itself, with a key its servers
+already trust; the submission template is explicit that the link given for review
+"cannot point at an already-built plugin". Signing your own bundle only matters
+for private distribution, where an administrator has added your public key to the
+server. For a plain GitHub download, `checksums.txt` is what verifies it.
 
 ## Submitting to the Marketplace
 
 Mattermost's Marketplace is populated from
 [`mattermost/mattermost-marketplace`](https://github.com/mattermost/mattermost-marketplace).
-Submission is a pull request to that repository, not an upload.
+Submission is an **issue** on that repository, using its "Add plugin" template —
+not a pull request and not an upload. Mattermost then reviews the source, forks
+it privately, and cuts and signs the release itself.
 
 Before submitting, the plugin needs:
 
@@ -138,11 +142,26 @@ Before submitting, the plugin needs:
       `min_server_version` of 9.5.0 began as a reading of API availability and
       is now tested: the integration suite runs in CI against both 9.5 and
       latest on every push, and passed against both on 26 October 2026.
-- [ ] A signed bundle, if Mattermost requires one at the time of submission.
+- [x] ~~A signed bundle~~ — **not a submitter deliverable.** Mattermost builds and
+      signs the plugin as part of listing it. Nothing to do here.
+- [ ] **Version 1.0.0 or later.** The template requires a plugin to be out of
+      Beta at v1.0.0+ for a full listing. At 0.1.0 this can only go in as a
+      **Beta** plugin, which the Marketplace supports and which is the honest
+      status today.
+- [ ] **A security contact** — an email address or Community Server username,
+      posted in the submission issue. SECURITY.md routes reports through GitHub
+      private advisories, which is fine for the repository but is not what the
+      template asks for.
 
-Then open the pull request against `mattermost-marketplace` adding the plugin to
-the manifest, and follow whatever review that repository's contributing guide
-sets out. Expect to answer questions about security and about what data the
+Two further requirements are judged by a Mattermost developer during review
+rather than by anything in this repository: that the plugin behaves at 60k
+concurrent connections and in a High Availability deployment, and that it logs
+important events at levels an administrator can act on. There is no public tool
+to demonstrate the first; [docs/TESTING.md](TESTING.md) records what the
+multi-node tests do and do not prove.
+
+Then open the issue against `mattermost-marketplace` from its "Add plugin"
+template. Expect to answer questions about security and about what data the
 plugin stores; [ARCHITECTURE.md](ARCHITECTURE.md) has both.
 
 **Do not submit without the owner's authorisation.** Publishing a release and
