@@ -1,14 +1,14 @@
-# Recommended improvements for v0.2.0
+# Recommended improvements after 1.0.0
 
 Ordered by what would most improve the plugin, not by how easy each is. Nothing
-here is required for v0.1.0 to be useful; these are the things that were
+here is required for 1.0.0 to be useful; these are the things that were
 consciously left out.
 
 ## Verification first
 
 These are not features, and they come before any of them. Most of the gaps
-v0.1.0 started with have since been closed; what is left is listed honestly
-below, because an unverified claim is worse than an absent feature.
+the project started with have since been closed; what is left is listed
+honestly below, because an unverified claim is worse than an absent feature.
 
 1. ~~**Run the integration suite.**~~ Done. It runs in CI on every push, against
    Mattermost 9.5 and latest, and covers install, activation, command
@@ -42,7 +42,7 @@ The most requested thing the archived community plugin did that this does not:
 `/remind @alice in an hour to review the PR`, and `/remind ~channel every Monday
 at 9am to post the standup`.
 
-It is deliberately absent from v0.1.0 because it changes the security model
+It is deliberately absent from 1.0.0 because it changes the security model
 completely. Today every read and write is scoped to the requesting user, which
 is what makes cross-user exposure structurally impossible. Reminding someone
 else means writing into their data, which needs: a rule about who may remind

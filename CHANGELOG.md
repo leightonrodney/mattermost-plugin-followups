@@ -9,52 +9,14 @@ this project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
-## [0.1.1] - 2026-10-26
+## [1.0.0] - 2026-10-26
 
-**Upgrade.** A reminder could be lost outright, and 0.1.0 is affected.
+First stable release.
 
-### Fixed
+An earlier 0.1.0 was published and then withdrawn: two defects were found while
+verifying it, one of them serious enough that no one should be running it. Both
+are fixed here. Nothing was released in between.
 
-- **A reminder could be stranded and never delivered.** If the worker handling
-  a reminder died between claiming it and posting it, that reminder was only
-  ever picked up again while the scheduler was still re-reading its hour. A
-  claim goes stale after five minutes, so a crash in roughly the last five
-  minutes of any hour meant the claim expired only after the hour had rolled
-  over — by which point the scheduler's cursor had moved past that bucket and
-  nothing read it again. The reminder stayed in `delivering` for good.
-
-  The scheduler now holds its cursor on any hour that still contains an
-  unsettled reminder, so the bucket keeps being re-read until everything in it
-  has been delivered, cancelled or given up on. This restores the at-least-once
-  delivery the design claims. See docs/ARCHITECTURE.md.
-
-  Delivery retries were never affected: a failed delivery is re-indexed at its
-  retry time and lands in a future bucket.
-
-- **The sidebar's tabs referred to panels that were not there.** All three tabs
-  carried `aria-controls`, but only the selected tab's panel is ever rendered,
-  so two of them always pointed at an element id absent from the document. A
-  screen reader following that reference finds nothing. Only the selected tab
-  now claims to control a panel.
-
-### Notes for anyone verifying this
-
-The fix is guarded by a test that walks every `aria-controls`,
-`aria-labelledby`, `aria-describedby` and `aria-owns` in the rendered markup and
-asserts each id resolves. That check exists because **axe-core does not catch
-this**: `aria-valid-attr-value` passes a dangling reference. axe now runs over
-the dialog, the sidebar and a reminder row as part of the suite and reports no
-violations, which is how it was established that this was the one real defect
-rather than one of many.
-
-Not user-facing, but worth knowing if you are assessing the project: two real
-Mattermost nodes against one Postgres now run in CI, and the server's push
-request is verified against a recorder rather than by reading logs. See
-docs/TESTING.md.
-
-## [0.1.0] - 2026-10-25
-
-First release.
 
 ### Added
 
@@ -104,18 +66,49 @@ First release.
 ### Verified
 
 - The integration suite installs the plugin into a real Mattermost server and
-  passes all seven of its tests, including one that waits for a reminder to come
-  due and confirms it arrives as a direct message. Run against both ends of the
-  supported range: 12.0.1 and 9.5, Team Edition.
+  passes all of its tests, including one that waits for a reminder to come due
+  and confirms it arrives as a direct message. Run on every push against both
+  ends of the supported range: 12.0.1 and 9.5, Team Edition.
+- **Two real nodes against one Postgres**, each running its own plugin process,
+  with reminders due at the same moment arriving exactly once. Runs in CI.
+- **The push request itself**, against a recorder standing in for the push
+  proxy: the server asks for a push and the payload carries the reminder's own
+  text. Runs in CI.
 - A reminder arriving as a push notification on a locked iPhone, showing its own
-  text rather than a generic placeholder.
+  text rather than a generic placeholder. Confirmed by hand, once.
+- axe-core over the dialog, the sidebar and a reminder row, with no violations.
 
 ### Known gaps
 
-- Not run on a multi-node cluster, nor against the 10.x and 11.x lines in
-  between. See [docs/TESTING.md](docs/TESTING.md).
-- Mobile push has been confirmed on iOS but not Android, and through
-  Mattermost's test push proxy rather than a production one.
+- **No licensed HA deployment.** Two real nodes are tested, but with clustering
+  switched off, because Mattermost gates it behind an Enterprise licence. The
+  test for it is written and skips until a licence is supplied. The plugin
+  coordinates through compare-and-set against the shared database and never
+  uses the cluster bus, so the expected result is no change — an argument, not
+  a measurement.
+- **Not run against the 10.x and 11.x lines**, only 9.5 and latest.
+- **Push is confirmed on iOS only**, by hand, through Mattermost's test proxy.
+  Android is untried, and real delivery through Apple or Google is outside what
+  any test here can reach.
+- **No screen reader.** The markup is checked; what a screen reader announces is
+  not. See [docs/TESTING.md](docs/TESTING.md).
 
-[Unreleased]: https://github.com/leightonrodney/mattermost-plugin-followups/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/leightonrodney/mattermost-plugin-followups/releases/tag/v0.1.0
+### Fixed before this release
+
+- **A reminder could be stranded and never delivered.** If the worker handling a
+  reminder died between claiming it and posting it, the claim went stale after
+  five minutes — and if that moment fell after the hour rolled over, the
+  scheduler's cursor had already moved past the bucket and nothing read it
+  again. A crash in roughly the last five minutes of any hour lost that
+  reminder for good. The scheduler now holds its cursor on any hour still
+  holding an unsettled reminder. This was the one defect that broke a documented
+  guarantee, and it was found by CI rather than by review: the test written for
+  exactly this case seeded its clock from the wall clock, so it only crossed an
+  hour boundary when the suite happened to run in the last minutes of an hour.
+- **The sidebar's tabs referred to panels that were not there.** All three
+  carried `aria-controls`, but only the selected tab's panel is rendered, so two
+  always pointed at an absent element id. axe-core does not flag this; a
+  reference check added alongside the fix does.
+
+[Unreleased]: https://github.com/leightonrodney/mattermost-plugin-followups/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/leightonrodney/mattermost-plugin-followups/releases/tag/v1.0.0

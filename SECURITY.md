@@ -51,12 +51,14 @@ Anything in this repository, including:
 
 ## Supported versions
 
-Only the most recent release receives security fixes. This project is
-pre-1.0; expect to upgrade.
+Only the most recent release receives security fixes.
 
 | Version | Supported |
 |:--|:--|
-| 0.1.x | yes |
+| 1.0.x | yes |
+
+An earlier 0.1.0 was published and withdrawn. It contains a defect that can
+drop a reminder, and it is not supported; upgrade to 1.0.0.
 
 ## What this plugin stores, and where
 

@@ -90,8 +90,8 @@ kind of use, so it is worth the twenty minutes.
 4. Merge.
 5. Tag and push:
    ```bash
-   git tag -s -a v0.1.0 -m "v0.1.0"
-   git push origin v0.1.0
+   git tag -s -a v1.0.0 -m "v1.0.0"
+   git push origin v1.0.0
    ```
    The Makefile's `make patch` / `make minor` / `make major` targets do the tag
    and push for you, with a confirmation prompt.
@@ -137,8 +137,9 @@ it privately, and cuts and signs the release itself.
 Before submitting, the plugin needs:
 
 - [x] A public GitHub repository with an OSI-approved licence — **done**, MIT.
-- [x] A tagged GitHub release with the bundle attached — **done**, v0.1.0,
-      published by the release workflow on 26 October 2026.
+- [x] A tagged GitHub release with the bundle attached — **done**, v1.0.0,
+      published by the release workflow on 26 October 2026. An earlier v0.1.0
+      was published and withdrawn the same day.
 - [x] A complete `plugin.json`: `id`, `name`, `description`, `version`,
       `min_server_version`, `homepage_url`, `support_url`, `release_notes_url`,
       `icon_path` — **done**, all present.
@@ -155,9 +156,7 @@ Before submitting, the plugin needs:
 - [x] ~~A signed bundle~~ — **not a submitter deliverable.** Mattermost builds and
       signs the plugin as part of listing it. Nothing to do here.
 - [ ] **Version 1.0.0 or later.** The template requires a plugin to be out of
-      Beta at v1.0.0+ for a full listing. At 0.1.0 this can only go in as a
-      **Beta** plugin, which the Marketplace supports and which is the honest
-      status today.
+      Beta at v1.0.0+ for a full listing. That is met as of 1.0.0.
 - [ ] **A security contact** — an email address or Community Server username,
       posted in the submission issue. SECURITY.md routes reports through GitHub
       private advisories, which is fine for the repository but is not what the

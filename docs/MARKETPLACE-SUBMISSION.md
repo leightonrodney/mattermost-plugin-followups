@@ -35,7 +35,7 @@ sidebar in light and dark themes, and a delivered reminder.
 #### Review commit
 
 Source: https://github.com/leightonrodney/mattermost-plugin-followups
-Tag for review: `v0.1.0` — https://github.com/leightonrodney/mattermost-plugin-followups/tree/v0.1.0
+Tag for review: `v1.0.0` — https://github.com/leightonrodney/mattermost-plugin-followups/tree/v1.0.0
 
 ## Checklist
 
@@ -46,9 +46,10 @@ Tag for review: `v0.1.0` — https://github.com/leightonrodney/mattermost-plugin
 - [x] Public issue tracker, linked from the README and set as `support_url`.
 - [x] Changelog published and linked via `release_notes_url`; `CHANGELOG.md`
       follows Keep a Changelog.
-- [ ] **Out of Beta at v1.0.0+** — not met. This is v0.1.0 and is submitted as a
-      **Beta** plugin. The functionality is complete and tested; the version
-      reflects that it has not yet run anywhere but a test deployment.
+- [x] **Out of Beta at v1.0.0+** — met. This is v1.0.0. An earlier 0.1.0 was
+      published and withdrawn after verification found a defect that could drop
+      a reminder; it is fixed, and the known gaps below are stated rather than
+      hidden.
 - [x] All configuration accessible via the Mattermost interface — eight settings
       under System Console → Plugins, all taking effect immediately, with
       out-of-range values clamped rather than rejected.
