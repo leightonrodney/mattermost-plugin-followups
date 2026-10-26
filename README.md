@@ -259,9 +259,10 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
   a single node. The coordination a cluster relies on is tested by sharing a
   key-value store between plugin instances, which exercises the mechanism but is
   not a licensed HA deployment. See [docs/TESTING.md](docs/TESTING.md).
-- **Push notifications are not verified end to end.** Reminders are ordinary
-  direct messages and are tested to be the kind of post the server will notify
-  about, but no test watches one arrive on a device.
+- **Push is confirmed on iOS only.** A reminder has been seen arriving as a
+  lock-screen notification on a locked iPhone, carrying its own text. Android
+  has not been tried, and the check used Mattermost's test push proxy rather
+  than a production one.
 
 ## Contributing
 

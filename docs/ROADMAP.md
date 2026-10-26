@@ -21,8 +21,8 @@ work available.
 3. **Test against the oldest supported server.** `min_server_version` is 9.5.0,
    derived from when each API became available rather than from testing. Pin the
    integration suite's image to that version and confirm.
-4. **Confirm mobile delivery.** Reminders are ordinary direct messages, so push
-   should work, but it has not been seen on a device.
+4. ~~**Confirm mobile delivery.**~~ Done on iOS, 26 October 2026. Android is
+   still untried.
 5. ~~**Capture screenshots.**~~ Done — see `docs/images/`. Taken from a real
    installation on Mattermost 12.0.1 Team Edition.
 

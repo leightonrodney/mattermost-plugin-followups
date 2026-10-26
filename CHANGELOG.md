@@ -64,12 +64,15 @@ First release.
   passes all seven of its tests, including one that waits for a reminder to come
   due and confirms it arrives as a direct message. Run against both ends of the
   supported range: 12.0.1 and 9.5, Team Edition.
+- A reminder arriving as a push notification on a locked iPhone, showing its own
+  text rather than a generic placeholder.
 
 ### Known gaps
 
 - Not run on a multi-node cluster, nor against the 10.x and 11.x lines in
   between. See [docs/TESTING.md](docs/TESTING.md).
-- Mobile push delivery has not been confirmed on a device.
+- Mobile push has been confirmed on iOS but not Android, and through
+  Mattermost's test push proxy rather than a production one.
 
 [Unreleased]: https://github.com/leightonrodney/mattermost-plugin-followups/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/leightonrodney/mattermost-plugin-followups/releases/tag/v0.1.0

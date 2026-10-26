@@ -281,10 +281,20 @@ between tests, and the delivery test waits for a real scheduler tick.
   plugin actually depends on, but it is not a licensed HA deployment and the
   cluster bus is absent. The next step up would be two Mattermost containers
   against one Postgres; see docs/ROADMAP.md.
-- **Push notifications reaching a device.** The tests above check that a
-  reminder is the kind of post the server will consider for notification, not
-  that one arrives. Proving that end to end needs a push proxy stub, and beyond
-  that APNs or FCM and a real handset. The design uses `cluster.Schedule` and
+- **Push on Android, and through a production push proxy.** Push was confirmed
+  on an iOS device on 26 October 2026: a reminder fired while the phone was
+  locked and arrived as a lock-screen notification showing the reminder's own
+  text, delivered through Mattermost's test proxy with
+  `PushNotificationContents: full`. Android has not been tried, and a real
+  deployment uses its own proxy rather than the test one.
+
+  Note for anyone repeating this: the server **does not log successful pushes**
+  at debug level. `notification_push.go` logs refusals as
+  `"type":"push","status":"not_sent"` with a reason, but a success is logged at
+  `MlvlNotificationTrace`, which is off by default. An empty log is not evidence
+  that nothing was sent — the only reliable confirmation is the device itself.
+  A `session_expired` reason means the device is attached to a stale session;
+  log out and back in on the device to mint a fresh one. The design uses `cluster.Schedule` and
   per-reminder compare-and-set claiming for exactly this case, and the
   concurrency is tested in-process, but it has not been run against two real
   nodes.

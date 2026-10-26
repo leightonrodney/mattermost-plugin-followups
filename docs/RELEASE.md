@@ -60,7 +60,9 @@ on, and the only test anywhere that proves it against a real server.
       Mattermost's own; see docs/TESTING.md.
 - [ ] **A mobile client.** Confirm a reminder arrives as a push notification.
       The suite checks the post is the kind the server will notify about; it
-      cannot check that a phone buzzes.
+      cannot check that a phone buzzes. Done once on iOS, 26 October 2026 —
+      see docs/TESTING.md, including why an empty server log proves nothing
+      here.
 
 Three items rather than ten, and none of them is something an automated test
 could have covered. Every bug found in this plugin so far came from exactly this
