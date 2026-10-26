@@ -261,10 +261,12 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
   bus — its coordination is compare-and-set against the shared database — but
   that is an argument, not a measurement. See
   [docs/TESTING.md](docs/TESTING.md).
-- **Push is confirmed on iOS only.** A reminder has been seen arriving as a
-  lock-screen notification on a locked iPhone, carrying its own text. Android
-  has not been tried, and the check used Mattermost's test push proxy rather
-  than a production one.
+- **Push is confirmed on iOS only.** That the server *asks* for a push, and
+  that the request carries the reminder's own text, is checked automatically on
+  every CI run against a recorder standing in for the push proxy. That a phone
+  then buzzes has been seen once, on a locked iPhone, through Mattermost's test
+  proxy. Android has not been tried, and a real deployment uses its own
+  proxy.
 
 ## Troubleshooting
 

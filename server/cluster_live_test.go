@@ -26,11 +26,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -200,18 +202,25 @@ func requireActivatedOnBothNodes(t *testing.T) {
 // enableDebugLogging turns on the plugin's own debug logging, so that a
 // scheduler run which delivers something says so. Without it the per-node
 // delivery counts this test prints are always zero and mean nothing.
+func enableDebugLogging(t *testing.T) {
+	t.Helper()
+
+	patchConfig(t, fmt.Sprintf(
+		`{"PluginSettings":{"Plugins":{%q:{"enabledebuglogging":true}}}}`, pluginID))
+}
+
+// patchConfig merges a partial configuration into the running servers. Both
+// nodes read one configuration out of the database, so patching either is
+// enough.
 //
 // It goes through `config patch` rather than `config set`, because a plugin's
 // settings live in a map and mmctl refuses to address into one: `config set`
 // answers "path object type is not supported".
-func enableDebugLogging(t *testing.T) {
+func patchConfig(t *testing.T, partial string) {
 	t.Helper()
 
-	patch := fmt.Sprintf(
-		`{"PluginSettings":{"Plugins":{%q:{"enabledebuglogging":true}}}}`, pluginID)
-
 	local := filepath.Join(t.TempDir(), "patch.json")
-	require.NoError(t, os.WriteFile(local, []byte(patch), 0o644)) //nolint:gosec
+	require.NoError(t, os.WriteFile(local, []byte(partial), 0o644)) //nolint:gosec
 
 	out, err := dockerCmd("cp", local,
 		"followups-cluster-mattermost1-1:/tmp/patch.json").CombinedOutput()
@@ -301,6 +310,9 @@ func TestTwoRealNodes(t *testing.T) {
 
 	t.Run("delivers each reminder exactly once", deliversEachReminderExactlyOnce)
 	t.Run("shares one scheduler cursor", sharesOneSchedulerCursor)
+
+	// Last, because it changes the server's push configuration.
+	t.Run("asks the push proxy to notify", asksThePushProxyToNotify)
 }
 
 func deliversEachReminderExactlyOnce(t *testing.T) {
@@ -394,4 +406,115 @@ func sharesOneSchedulerCursor(t *testing.T) {
 	require.Lenf(t, messages, 1,
 		"one reminder, created on one node, must arrive exactly once: got %v", messages)
 	assert.Contains(t, messages[0], "check the cursor")
+}
+
+// asksThePushProxyToNotify is the part of mobile delivery that can be checked
+// without a phone.
+//
+// Until now the only evidence that a reminder reaches a device was someone
+// looking at one, and that evidence was nearly misread: Mattermost does not log
+// successful pushes at debug level, so an empty server log looked like proof
+// that nothing was sent when the opposite was true. See docs/TESTING.md.
+//
+// What this does instead is stand a recorder up in the test process, point the
+// server's push notification server at it, attach a device to the session, and
+// let a reminder come due. If the server decides a reminder warrants a push, it
+// posts one here and the payload can be inspected. That covers everything up to
+// the proxy: the decision, the routing and the contents. It cannot cover what
+// Apple or Google then do, which is the part that still needs a device.
+func asksThePushProxyToNotify(t *testing.T) {
+	type recorded struct {
+		path string
+		body map[string]any
+	}
+
+	var (
+		mu       sync.Mutex
+		captured []recorded
+	)
+
+	// All interfaces on purpose: the containers reach this through the host
+	// gateway, so binding loopback would make it unreachable from them.
+	listener, err := net.Listen("tcp", "0.0.0.0:0") //nolint:gosec // reached from containers
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	server := &http.Server{
+		ReadHeaderTimeout: 5 * time.Second,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+
+			mu.Lock()
+			captured = append(captured, recorded{path: r.URL.Path, body: body})
+			mu.Unlock()
+
+			// What a real push proxy answers. Anything else and the server
+			// treats the send as failed.
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"OK"}`))
+		}),
+	}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
+
+	// host.docker.internal is the container's route back to this process; the
+	// compose file maps it explicitly so this also works on Linux.
+	patchConfig(t, fmt.Sprintf(`{"EmailSettings":{
+		"SendPushNotifications":true,
+		"PushNotificationServer":"http://host.docker.internal:%d",
+		"PushNotificationContents":"full"
+	}}`, port))
+
+	client := newUser(t, "pushuser")
+
+	// The platform prefix has to be one the server allows, and the allowlist is
+	// narrower than the push payloads suggest: only the React Native platforms
+	// (apple_rn, apple_rnbeta, android_rn) are accepted. A plain "apple:" id is
+	// refused with "Invalid or missing device_id in request body". The token
+	// after the prefix is never used, because nothing past the recorder sees it.
+	_, err = client.AttachDeviceProps(context.Background(), map[string]string{
+		"device_id":      "apple_rn:followups-test-device-token",
+		"mobile_version": "2.0.0",
+	})
+	require.NoError(t, err, "should be able to attach a device to the session")
+
+	const text = "push through the proxy"
+	createReminder(t, client, node1URL, "me in 70 seconds to "+text)
+
+	deadline := time.Now().Add(deliveryWait)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		found := len(captured) > 0
+		mu.Unlock()
+		if found {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	require.NotEmptyf(t, captured,
+		"the server never contacted the push proxy for a delivered reminder; "+
+			"the reminder itself arriving is checked separately, so this is about the push decision")
+
+	for _, push := range captured {
+		t.Logf("push to %s: %v", push.path, push.body)
+	}
+
+	// With PushNotificationContents set to full the body carries the message,
+	// which is what makes a reminder useful on a lock screen. Checking the text
+	// rather than merely that something was sent is the difference between
+	// "a push happened" and "the right push happened".
+	var carriesTheReminder bool
+	for _, push := range captured {
+		if message, ok := push.body["message"].(string); ok && strings.Contains(message, text) {
+			carriesTheReminder = true
+			break
+		}
+	}
+	assert.Truef(t, carriesTheReminder,
+		"a push was sent but none carried the reminder's own text %q", text)
 }

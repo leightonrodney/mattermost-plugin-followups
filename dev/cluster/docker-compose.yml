@@ -57,6 +57,11 @@ services:
       # Shared, so the second node finds the plugin bundle the first one
       # installed. In a real cluster this is NAS or S3 for exactly this reason.
       - shared-data:/mattermost/data
+    # Lets a container reach a server running on the host, which is how the push
+    # test points Mattermost at a recorder it controls. Docker Desktop and
+    # OrbStack provide this name already; Linux, including CI, does not.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   # Same image, same database, same filestore: a second node by every means
   # available without a licence. Started after the plugin is installed, so it

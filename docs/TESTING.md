@@ -325,6 +325,7 @@ own timers. Executed on 26 October 2026 against Team Edition latest:
 | Both nodes activate their own plugin process | passing |
 | Six reminders due at once, each delivered exactly once | passing |
 | A reminder created on one node arrives exactly once | passing |
+| The server asks a push proxy to notify, carrying the reminder text | passing |
 
 Be precise about what this adds over the in-process cluster tests, because the
 two cover different halves:
@@ -350,12 +351,29 @@ licensed HA deployment.
   above — but with clustering itself switched off, because Mattermost gates it
   behind an Enterprise licence. What a licensed cluster would add is the cluster
   bus and node lifecycle, neither of which this plugin uses.
-- **Push on Android, and through a production push proxy.** Push was confirmed
-  on an iOS device on 26 October 2026: a reminder fired while the phone was
-  locked and arrived as a lock-screen notification showing the reminder's own
-  text, delivered through Mattermost's test proxy with
-  `PushNotificationContents: full`. Android has not been tried, and a real
-  deployment uses its own proxy rather than the test one.
+- **Push on Android, and real delivery through Apple or Google.** The push
+  *decision* is no longer a manual check. The cluster suite stands a recorder up
+  in the test process, points `PushNotificationServer` at it, attaches a device
+  to the session and lets a reminder come due; it then asserts a push arrived
+  carrying the reminder's own text. A captured payload looks like this:
+
+  ```
+  POST /api/v1/send_push
+  message:  ":alarm_clock: Reminder\npush through the proxy"
+  platform: apple_rn     channel_name: @followups
+  type:     message      category: CAN_REPLY      badge: 1
+  ```
+
+  That covers the decision, the routing and the contents — everything up to the
+  proxy. What it cannot cover is what Apple or Google do next. That part was
+  confirmed by hand once, on an iOS device on 26 October 2026, through
+  Mattermost's test proxy with `PushNotificationContents: full`. Android has
+  never been tried, and a real deployment uses its own proxy.
+
+  One trap worth knowing if you write a test like this: the server's device-id
+  allowlist accepts only the React Native platform prefixes — `apple_rn`,
+  `apple_rnbeta`, `android_rn`. A plain `apple:` id is refused with "Invalid or
+  missing device_id in request body".
 
   Note for anyone repeating this: the server **does not log successful pushes**
   at debug level. `notification_push.go` logs refusals as

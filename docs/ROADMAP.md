@@ -26,8 +26,10 @@ below, because an unverified claim is worse than an absent feature.
 3. ~~**Test against the oldest supported server.**~~ Done. `min_server_version`
    is 9.5.0, and the integration suite runs against that image in CI alongside
    latest, so the claim is tested rather than derived from API availability.
-4. ~~**Confirm mobile delivery.**~~ Done on iOS, 26 October 2026. Android is
-   still untried.
+4. ~~**Confirm mobile delivery.**~~ Done on iOS, 26 October 2026, and the
+   server-side half is now automated: a recorder stands in for the push proxy
+   and the suite asserts the push carries the reminder's text. Android is still
+   untried, as is delivery through a production proxy.
 5. ~~**Capture screenshots.**~~ Done — see `docs/images/`. Taken from a real
    installation on Mattermost 12.0.1 Team Edition.
 
