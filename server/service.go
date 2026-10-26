@@ -51,6 +51,17 @@ func (s *service) Now() time.Time {
 // should move on. It is not a failure.
 var errSkip = errors.New("reminder not eligible")
 
+// errSettled means a reminder has reached a state it will never leave, so
+// nothing is waiting on it. It wraps errSkip because it is a stricter case of
+// the same thing: every caller that only needs "not eligible" keeps working
+// unchanged, and errors.Is(err, errSkip) still holds.
+//
+// The distinction matters to the scheduler alone. An entry that is merely "not
+// yet" — not due, a claim still inside its window, a retry still backing off —
+// keeps its hour open, because the cursor moving past that hour is how a
+// stalled delivery used to be stranded for good.
+var errSettled = fmt.Errorf("reminder already settled: %w", errSkip)
+
 // userError marks an error whose message was written for the person who caused
 // it, and so may be shown to them word for word. Everything else is an internal
 // failure: it is logged, and the user sees a generic message.
@@ -491,9 +502,12 @@ func (s *service) Claim(userID, reminderID string, now time.Time) (*reminder.Rem
 				return errSkip
 			}
 		case reminder.StatusDelivered, reminder.StatusCancelled, reminder.StatusFailed:
-			return errSkip
+			return errSettled
 		default:
-			return errSkip
+			// An unrecognised status should not happen. Treating it as settled
+			// is the lesser evil: holding the cursor on it would stop every
+			// later reminder on the server, not just this one.
+			return errSettled
 		}
 
 		rec.Status = reminder.StatusDelivering

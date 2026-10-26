@@ -38,6 +38,20 @@ type testService struct {
 	conf  *configuration
 }
 
+// testClockBase is where every test's clock starts: five minutes past an hour,
+// near enough to now that index buckets have not expired, but at a fixed
+// position within the hour so that a test's behaviour does not depend on when
+// it happens to run.
+//
+// This is not a detail. Seeding from time.Now() meant a scheduling test only
+// crossed an hour boundary if CI started in the last few minutes of an hour,
+// which is exactly how a stranded-reminder bug survived every local run and
+// only surfaced once, at 05:28 UTC. Tests that care about the boundary now say
+// so explicitly, with newTestPluginAt.
+func testClockBase() time.Time {
+	return time.Now().UTC().Truncate(time.Hour).Add(5 * time.Minute)
+}
+
 type fakeClock struct {
 	mu  sync.Mutex
 	now time.Time
@@ -47,6 +61,12 @@ func (c *fakeClock) Now() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.now
+}
+
+func (c *fakeClock) Set(at time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.now = at
 }
 
 func (c *fakeClock) Advance(d time.Duration) {
@@ -64,7 +84,7 @@ func newTestService(t *testing.T, tweak ...func(*configuration)) *testService {
 	}
 
 	st := store.New(&pluginapi.MemoryStore{})
-	clock := &fakeClock{now: time.Now().UTC().Truncate(time.Second)}
+	clock := &fakeClock{now: testClockBase()}
 
 	svc := newService(st, fakeUsers{timezone: "America/New_York"}, func() *configuration { return conf })
 	svc.now = clock.Now

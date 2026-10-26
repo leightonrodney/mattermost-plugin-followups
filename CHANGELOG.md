@@ -11,10 +11,25 @@ Nothing yet.
 
 ## [0.1.1] - 2026-10-26
 
-One accessibility fix. Nothing else in the plugin's behaviour changed, so
-upgrading matters only if anyone uses the sidebar with a screen reader.
+**Upgrade.** A reminder could be lost outright, and 0.1.0 is affected.
 
 ### Fixed
+
+- **A reminder could be stranded and never delivered.** If the worker handling
+  a reminder died between claiming it and posting it, that reminder was only
+  ever picked up again while the scheduler was still re-reading its hour. A
+  claim goes stale after five minutes, so a crash in roughly the last five
+  minutes of any hour meant the claim expired only after the hour had rolled
+  over — by which point the scheduler's cursor had moved past that bucket and
+  nothing read it again. The reminder stayed in `delivering` for good.
+
+  The scheduler now holds its cursor on any hour that still contains an
+  unsettled reminder, so the bucket keeps being re-read until everything in it
+  has been delivered, cancelled or given up on. This restores the at-least-once
+  delivery the design claims. See docs/ARCHITECTURE.md.
+
+  Delivery retries were never affected: a failed delivery is re-indexed at its
+  retry time and lands in a future bucket.
 
 - **The sidebar's tabs referred to panels that were not there.** All three tabs
   carried `aria-controls`, but only the selected tab's panel is ever rendered,

@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/leightonrodney/mattermost-plugin-followups/server/reminder"
 	"github.com/leightonrodney/mattermost-plugin-followups/server/store"
 )
 
@@ -75,6 +76,12 @@ func (p *Plugin) runSchedulerAt(now time.Time) {
 	delivered, claimed := 0, 0
 	touched := map[string]struct{}{}
 
+	// Once an hour is found to still have something pending, the cursor stops
+	// moving for the rest of this run. Advancing past a later, tidier hour
+	// would skip the pending one for good, which is precisely the failure this
+	// guards against.
+	cursorHeld := false
+
 	for hour, processed := cursor.Add(time.Hour), 0; !hour.After(nowHour); hour = hour.Add(time.Hour) {
 		if processed >= maxBucketsPerRun {
 			p.logDebug("Scheduler hit its per-run bucket limit; continuing on the next run",
@@ -91,7 +98,10 @@ func (p *Plugin) runSchedulerAt(now time.Time) {
 		}
 
 		for _, entry := range entries {
-			ok, err := p.deliverEntry(entry, now)
+			ok, outstanding, err := p.deliverEntry(entry, now)
+			if outstanding {
+				cursorHeld = true
+			}
 			if err != nil {
 				p.client.Log.Error("Failed to deliver a reminder",
 					"user_id", entry.UserID, "reminder_id", entry.ReminderID, "error", err.Error())
@@ -109,7 +119,14 @@ func (p *Plugin) runSchedulerAt(now time.Time) {
 		// The current hour is still accumulating entries, so it is never marked
 		// finished; it is simply re-read on the next run. Per-reminder claiming
 		// is what stops that re-read from delivering anything twice.
-		if hour.Before(nowHour) {
+		//
+		// An hour with anything still pending is not finished either. A worker
+		// that died holding a claim, or a delivery backing off before its next
+		// attempt, needs its bucket read again — and the only thing that brings
+		// the scheduler back to a bucket is the cursor not having passed it.
+		// The index retention window bounds how long this can hold: once the
+		// bucket expires there is nothing left to be outstanding.
+		if !cursorHeld && hour.Before(nowHour) {
 			if err := p.store.SetCursor(hour); err != nil {
 				p.client.Log.Error("Failed to advance the scheduler cursor", "error", err.Error())
 				return
@@ -135,33 +152,41 @@ func (p *Plugin) runSchedulerAt(now time.Time) {
 }
 
 // deliverEntry takes one index entry through the claim, post, settle sequence.
-// It reports whether this call was the one that delivered the reminder.
-func (p *Plugin) deliverEntry(entry store.DueEntry, now time.Time) (bool, error) {
+// It reports whether this call delivered the reminder, and whether the entry is
+// still outstanding — that is, whether something is still expected to happen to
+// it. An outstanding entry holds the scheduler's cursor on its hour.
+func (p *Plugin) deliverEntry(entry store.DueEntry, now time.Time) (delivered, outstanding bool, err error) {
 	claimed, err := p.service.Claim(entry.UserID, entry.ReminderID, now)
 	switch {
+	case err == errSettled:
+		// Delivered, cancelled or given up on. Nothing is waiting.
+		return false, false, nil
 	case err == errSkip:
-		// Already delivered, cancelled, not yet due, or claimed by a worker
-		// that is still within its claim window. All ordinary.
-		return false, nil
+		// Not yet due, a claim still inside its window, or a retry still
+		// backing off. All ordinary, and all still to come.
+		return false, true, nil
 	case err != nil:
-		return false, err
+		return false, true, err
 	}
 
 	if postErr := p.postReminder(claimed); postErr != nil {
 		// The reminder stays claimed only until the service records the
 		// failure, which schedules a backoff retry or gives up.
-		if _, err := p.service.Failed(entry.UserID, entry.ReminderID, now); err != nil {
-			return false, err
+		settled, err := p.service.Failed(entry.UserID, entry.ReminderID, now)
+		if err != nil {
+			return false, true, err
 		}
-		return false, postErr
+		// A retry is pending unless this attempt was the last one.
+		stillComing := settled == nil || settled.Status != reminder.StatusFailed
+		return false, stillComing, postErr
 	}
 
 	if _, err := p.service.Delivered(entry.UserID, entry.ReminderID, now); err != nil {
 		// The message is already out. Reporting the bookkeeping failure lets
 		// the operator see it; the claim times out and the reminder is retried,
 		// which is the at-least-once edge documented in docs/ARCHITECTURE.md.
-		return true, err
+		return true, true, err
 	}
 
-	return true, nil
+	return true, false, nil
 }

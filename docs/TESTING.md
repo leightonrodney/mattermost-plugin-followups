@@ -404,6 +404,27 @@ licensed HA deployment.
 - Screen readers. The component tests assert roles and accessible names, which
   is not the same as using one.
 
+## A lesson about clocks
+
+The scheduling tests used to seed their fake clock from `time.Now()`. That looks
+harmless and is not: the scheduler works in hourly buckets, so whether a test
+crosses an hour boundary depended on the time of day it ran.
+
+A real bug lived in that gap for the life of the project. A worker dying in the
+last five minutes of an hour stranded its reminder permanently, and the test
+written to catch exactly that — `TestClusterOneNodeFailingDoesNotStrandAReminder`
+— passed every local run and every CI run until one started at 05:28 UTC.
+
+Tests now start from `testClockBase()`, a fixed five minutes past the hour, and
+anything that cares about the boundary says so with `newTestPluginAt`. If you
+write a scheduling test, decide where in the hour it sits and state it.
+
+One more habit worth copying: when a test is meant to catch a specific bug,
+break the fix and watch it fail. A retry-across-the-boundary test was written
+alongside the fix and deleted again, because it passed whether or not the bug
+was present — and a test that cannot fail is worse than no test, since it
+advertises coverage that is not there.
+
 ## Writing tests
 
 - **Server.** `pluginapi.MemoryStore` gives the real compare-and-set semantics

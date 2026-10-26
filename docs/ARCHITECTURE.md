@@ -109,10 +109,26 @@ Each run:
    run. A plugin that has been off for weeks catches up over several runs
    instead of holding the cluster lock for a long time.
 4. For each entry, runs the delivery handshake below.
-5. Advances the cursor past each *completed* hour. The current hour is never
-   marked finished, because more entries can still land in it; it is simply
-   re-read next run, and per-reminder claiming is what stops that re-read
-   delivering anything twice.
+5. Advances the cursor past each *completed* hour — but only while every entry
+   in it has settled. The current hour is never marked finished, because more
+   entries can still land in it; it is simply re-read next run, and
+   per-reminder claiming is what stops that re-read delivering anything twice.
+
+   An hour holding anything unsettled is not finished either, and the cursor
+   stops there for the rest of the run. This is not a refinement; it is load
+   bearing. A worker that dies holding a claim leaves its reminder in
+   `delivering`, and the only thing that ever brings the scheduler back to it
+   is the cursor not having passed its bucket. Without that hold, a crash in
+   the last five minutes of an hour stranded the reminder permanently — the
+   claim went stale only after the hour had rolled over, by which point the
+   bucket was behind the cursor and was never read again. The index retention
+   window bounds how long the cursor can be held: once a bucket expires there
+   is nothing left in it to be unsettled.
+
+   A failed delivery does not rely on this. `Failed` re-indexes the reminder at
+   its retry time, so it lands in a future bucket and is found by an ordinary
+   sweep. `Claim` has no equivalent, which is why the stalled claim was the one
+   path that could be lost.
 
 Steady-state cost is 8 key reads per tick — one per shard of the current hour —
 regardless of how many users the server has.

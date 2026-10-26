@@ -85,6 +85,17 @@ const (
 	testTeamID    = "team0000000000000000000000"
 )
 
+// newTestPluginAt is newTestPlugin with the clock placed deliberately. Use it
+// when a test depends on where it sits inside the hour — the scheduler works in
+// hourly buckets, so that position decides whether a sweep crosses a boundary.
+func newTestPluginAt(t *testing.T, at time.Time, tweak ...func(*configuration)) *testPlugin {
+	t.Helper()
+
+	tp := newTestPlugin(t, tweak...)
+	tp.clock.Set(at)
+	return tp
+}
+
 func newTestPlugin(t *testing.T, tweak ...func(*configuration)) *testPlugin {
 	t.Helper()
 
@@ -95,7 +106,7 @@ func newTestPlugin(t *testing.T, tweak ...func(*configuration)) *testPlugin {
 		Plugin: &Plugin{},
 		api:    api,
 		kv:     kv,
-		clock:  &fakeClock{now: time.Now().UTC().Truncate(time.Second)},
+		clock:  &fakeClock{now: testClockBase()},
 	}
 
 	api.On("KVGet", mock.AnythingOfType("string")).Return(
