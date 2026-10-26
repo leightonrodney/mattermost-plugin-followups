@@ -209,6 +209,11 @@ ifneq ($(HAS_SERVER),)
 	@echo Running golangci-lint
 	$(GO) vet ./...
 	"$(GOBIN)/golangci-lint" run ./...
+	# The integration and cluster tests are behind build tags, so the run above
+	# never sees them and they can rot unnoticed. Lint them too.
+	@echo Running golangci-lint over the build-tagged tests
+	$(GO) vet -tags integration,cluster ./server/...
+	"$(GOBIN)/golangci-lint" run --build-tags integration,cluster ./server/...
 endif
 
 ## Builds the server, if it exists, for all supported architectures, unless MM_SERVICESETTINGS_ENABLEDEVELOPER is set.
@@ -393,6 +398,10 @@ endif
 # otherwise default to the Enterprise image.
 MM_TEST_IMAGE ?= mattermost/mattermost-team-edition:latest
 
+# The server version the cluster test runs against. Kept separate from
+# MM_TEST_IMAGE because docker-compose interpolates a tag, not a whole image.
+MM_VERSION ?= latest
+
 ## Runs the integration tests, which start a real Mattermost server in a
 ## container, install this plugin into it and exercise it over HTTP. Docker must
 ## be running.
@@ -411,6 +420,25 @@ test-integration:
 	docker pull --platform linux/amd64 $(MM_TEST_IMAGE)
 	$(MAKE) dist MM_SERVICESETTINGS_ENABLEDEVELOPER=true DEFAULT_GOOS=linux DEFAULT_GOARCH=amd64
 	MM_TEST_IMAGE=$(MM_TEST_IMAGE) $(GO) test -tags integration -count 1 -timeout 20m -v ./server/...
+
+## Runs the two-node cluster test: two real Mattermost servers against one
+## Postgres, each running its own copy of this plugin, checking that a reminder
+## is delivered exactly once when two schedulers are racing for it.
+##
+## This is a step beyond test-integration, which runs one server. Here the
+## coordination goes through Postgres rather than an in-memory store and the
+## schedulers fire on their own timers, so it takes a few minutes rather than
+## seconds. Clustering itself stays off: Mattermost gates it behind an
+## Enterprise licence, and the mechanism this plugin relies on does not use the
+## cluster bus. dev/cluster/docker-compose.yml explains the trade in full.
+##
+## Override the server version with MM_VERSION, for example:
+##   make test-cluster MM_VERSION=9.5
+.PHONY: test-cluster
+test-cluster:
+	docker pull --platform linux/amd64 mattermost/mattermost-team-edition:$(MM_VERSION)
+	$(MAKE) dist DEFAULT_GOOS=linux DEFAULT_GOARCH=amd64
+	MM_VERSION=$(MM_VERSION) $(GO) test -tags cluster -count 1 -timeout 30m -v ./server/...
 
 ## Creates a coverage report for the server code.
 .PHONY: coverage

@@ -15,12 +15,14 @@ below, because an unverified claim is worse than an absent feature.
    registration, a real scheduler tick delivering a reminder, and a
    disable/wait/re-enable cycle that only passes if the schedule survived in
    the database.
-2. **Test against a real licensed cluster.** Partly done. Multi-node
-   coordination is now tested by sharing one key-value store between plugin
-   instances — the exact mechanism the plugin depends on — covering single
-   delivery, cursor sharing and a node dying mid-claim. What is still untried is
-   a licensed HA deployment with a cluster bus: two Mattermost containers
-   against one Postgres. Worth doing before anyone deploys it at scale.
+2. **Test against a licensed HA cluster.** Mostly done. Two real Mattermost
+   servers against one Postgres now run in CI, each with its own plugin
+   process, and reminders due at the same moment arrive exactly once;
+   contention on the per-reminder claim is covered in-process, where the
+   cluster lock can be bypassed deliberately. What remains is a licensed
+   deployment with a cluster bus, which needs an Enterprise licence. The plugin
+   does not use the bus, so the expected result is "no change" — which is
+   worth confirming rather than assuming before anyone runs it at scale.
 3. ~~**Test against the oldest supported server.**~~ Done. `min_server_version`
    is 9.5.0, and the integration suite runs against that image in CI alongside
    latest, so the claim is tested rather than derived from API availability.

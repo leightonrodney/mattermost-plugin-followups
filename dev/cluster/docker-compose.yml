@@ -1,0 +1,73 @@
+# Two Mattermost servers against one Postgres, each running its own copy of this
+# plugin. This is the closest thing to a cluster that can be stood up without an
+# Enterprise licence, and it is what `make test-cluster` drives.
+#
+# What it does reproduce, and what the in-process tests cannot:
+#   - two separate server processes, each spawning its own plugin process;
+#   - real compare-and-set against Postgres rather than an in-memory store;
+#   - real scheduler timers firing on their own, with no injected clock;
+#   - two schedulers genuinely racing for the same due reminders.
+#
+# What it does NOT reproduce: the cluster bus. Mattermost gates clustering
+# behind an Enterprise licence, so ClusterSettings stays off here. That costs
+# less than it sounds: cluster.Schedule and cluster.Mutex are built on
+# KVSetWithOptions and nothing else, so the coordination this plugin relies on
+# is exercised in full. A licensed cluster would additionally cover node
+# lifecycle and anything that depends on inter-node messaging, which this
+# plugin does not use. See docs/TESTING.md.
+name: followups-cluster
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: mmuser
+      POSTGRES_PASSWORD: mmuser-password
+      POSTGRES_DB: mattermost
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mmuser -d mattermost']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  mattermost1: &node
+    image: mattermost/mattermost-team-edition:${MM_VERSION:-latest}
+    platform: linux/amd64
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '8071:8065'
+    environment: &node_env
+      # Config lives in the database, so both nodes read one configuration and
+      # a plugin enabled on one is enabled for the other. This is also what
+      # Mattermost recommends for a real cluster.
+      MM_CONFIG: postgres://mmuser:mmuser-password@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SQLSETTINGS_DRIVERNAME: postgres
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mmuser-password@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SERVICESETTINGS_SITEURL: http://localhost:8071
+      MM_SERVICESETTINGS_ENABLELOCALMODE: 'true'
+      MM_SERVICESETTINGS_LOCALMODESOCKETLOCATION: /var/tmp/mattermost_local.socket
+      MM_PLUGINSETTINGS_ENABLEUPLOADS: 'true'
+      MM_PLUGINSETTINGS_ENABLE: 'true'
+      MM_LOGSETTINGS_CONSOLELEVEL: DEBUG
+      MM_LOGSETTINGS_ENABLEDIAGNOSTICS: 'false'
+      MM_EMAILSETTINGS_SENDEMAILNOTIFICATIONS: 'false'
+    volumes:
+      # Shared, so the second node finds the plugin bundle the first one
+      # installed. In a real cluster this is NAS or S3 for exactly this reason.
+      - shared-data:/mattermost/data
+
+  # Same image, same database, same filestore: a second node by every means
+  # available without a licence. Started after the plugin is installed, so it
+  # picks the bundle up from the shared filestore on boot.
+  mattermost2:
+    <<: *node
+    ports:
+      - '8072:8065'
+    environment:
+      <<: *node_env
+      MM_SERVICESETTINGS_SITEURL: http://localhost:8072
+
+volumes:
+  shared-data:

@@ -7,6 +7,7 @@ make test              # server and webapp unit tests; needs only Go and npm
 make test-ci           # the same, with JUnit output for CI
 make check-style       # gofmt, go vet, golangci-lint, eslint, tsc, manifest check
 make test-integration  # end-to-end against a real Mattermost server; needs Docker
+make test-cluster      # two real nodes against one Postgres; needs Docker, slower
 ```
 
 Individually:
@@ -133,7 +134,7 @@ no longer read that channel.
 in `defaultConfiguration()` match the defaults declared in `plugin.json`, so a
 fresh install behaves the way the settings page says it will.
 
-### Webapp — 85 tests across 6 suites, all passing
+### Webapp — 99 tests across 7 suites, all passing
 
 | Suite | Tests | What it covers |
 |:--|:--|:--|
@@ -143,6 +144,7 @@ fresh install behaves the way the settings page says it will.
 | `time.test.ts` | 15 | Formatting and the datetime-local round trip |
 | `store.test.ts` | 7 | Shared state |
 | `theme.test.ts` | 4 | Theme compatibility |
+| `components/accessibility.test.tsx` | 14 | axe-core over the dialog, sidebar and rows |
 
 Specifically:
 
@@ -170,6 +172,43 @@ closes; the tab list uses `role="tablist"`/`role="tab"`/`role="tabpanel"` with
 assertion in the component tests finds controls **by role and accessible name**
 rather than by class or test ID, so a change that breaks the accessible name
 breaks the tests.
+
+On top of that, `components/accessibility.test.tsx` runs **axe-core** (through
+`jest-axe` 11.0.0) over the dialog, the sidebar and a reminder row in the states
+that matter: a populated list, each tab in turn, a validation error showing, a
+row with its full set of action buttons, and buttons disabled mid-action. The
+full default ruleset is used — nothing is disabled and the ruleset is not
+lowered — and it reports no violations.
+
+One defect was found while adding those tests, and axe does not catch it. All
+three sidebar tabs carried `aria-controls`, but only the selected tab's panel is
+ever rendered, so two of them always pointed at an element that is not in the
+document. `aria-valid-attr-value` passes that. The guard is a check in the same
+file that walks `aria-controls`, `aria-labelledby`, `aria-describedby` and
+`aria-owns` and asserts every id resolves; reverting the fix fails that test and
+nothing else.
+
+**What the axe tests do not cover**, which matters more than the count:
+
+- **Colour contrast, not at all.** `jest-axe` disables axe's whole `cat.color`
+  group in jsdom, and forcing it on only produces `incomplete` results. There is
+  a second reason it could not work anyway: jest maps `*.scss` to
+  `identity-obj-proxy`, so no stylesheet and no theme variable is ever loaded.
+  The contrast figures in this document come from measurement in a real browser,
+  not from these tests.
+- **Anything axe files as `incomplete`** — focus visibility, overlap, scrollable
+  regions — passes silently, because the matcher only fails on violations.
+- **Page-level rules**, such as landmark structure, do not run at all when the
+  context is a component rather than a document.
+- **Keyboard behaviour**, which axe has no rule for. Two things are known to be
+  unverified and are not merely untested: the tab list has no arrow-key
+  navigation or roving tabindex, so all three tabs sit in the tab sequence
+  rather than following the ARIA pattern; and the dialog has no focus trap and
+  does not restore focus on close. Only initial focus is asserted.
+- **A screen reader.** The suite now proves the markup exposes correct roles,
+  names and relationships. It says nothing about what VoiceOver, NVDA or JAWS
+  announce as focus moves, or whether live-region updates are spoken when they
+  should be.
 
 **Theme compatibility, measured** — on 26 October 2026 the rendered contrast
 of every text element was measured in the browser against the Onyx dark theme,
@@ -274,13 +313,43 @@ before a release.
 It takes several minutes: it pulls a Mattermost image, resets the database
 between tests, and the delivery test waits for a real scheduler tick.
 
+### Two real nodes — passing against one Postgres
+
+Run with `make test-cluster`, and in CI on every push. Two Mattermost servers
+share one database and one filestore, each starts its own copy of the plugin,
+and reminders are created through one node while both schedulers run on their
+own timers. Executed on 26 October 2026 against Team Edition latest:
+
+| Check | Result |
+|:--|:--|
+| Both nodes activate their own plugin process | passing |
+| Six reminders due at once, each delivered exactly once | passing |
+| A reminder created on one node arrives exactly once | passing |
+
+Be precise about what this adds over the in-process cluster tests, because the
+two cover different halves:
+
+- **This test** proves the real deployment shape works: separate server
+  processes, compare-and-set against Postgres rather than an in-memory store,
+  real timers, and no duplicate delivery. In the run above, node 1 held the
+  cluster lock throughout and node 2 never swept — which is the lock behaving
+  correctly, and it means this test did **not** exercise the per-reminder
+  claim under contention.
+- **The in-process tests** (`server/cluster_test.go`) cover exactly that: they
+  deliberately bypass the lock and sweep on several instances at the same
+  instant, because the lock has a time-to-live and a node that stalls past it
+  keeps running without it. That window is what per-reminder claiming exists
+  for.
+
+Neither is a substitute for the other, and together they are still not a
+licensed HA deployment.
+
 **Still not verified:**
 
-- **A real multi-node Mattermost cluster.** The tests above simulate one by
-  sharing a key-value store between plugin instances, which is the mechanism the
-  plugin actually depends on, but it is not a licensed HA deployment and the
-  cluster bus is absent. The next step up would be two Mattermost containers
-  against one Postgres; see docs/ROADMAP.md.
+- **A licensed HA deployment.** Two real nodes are now tested — see the section
+  above — but with clustering itself switched off, because Mattermost gates it
+  behind an Enterprise licence. What a licensed cluster would add is the cluster
+  bus and node lifecycle, neither of which this plugin uses.
 - **Push on Android, and through a production push proxy.** Push was confirmed
   on an iOS device on 26 October 2026: a reminder fired while the phone was
   locked and arrived as a lock-screen notification showing the reminder's own

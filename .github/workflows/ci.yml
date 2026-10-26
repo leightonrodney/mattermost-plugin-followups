@@ -162,6 +162,42 @@ jobs:
       - name: Run the integration suite
         run: make test-integration MM_TEST_IMAGE=mattermost/mattermost-team-edition:${{ matrix.mattermost }}
 
+  cluster:
+    name: Two-node cluster
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install webapp dependencies
+        run: npm ci
+        working-directory: webapp
+
+      # Two Mattermost servers against one Postgres, each running its own copy
+      # of the plugin, with reminders due at the same moment. Slower than the
+      # single-node suite because the schedulers run on their own timers rather
+      # than an injected clock, which is the point of it.
+      - name: Run the two-node cluster test
+        run: make test-cluster
+
+      # The containers are gone by now either way; this is here so a failure
+      # leaves something to read in the job log.
+      - name: Show the node logs on failure
+        if: failure()
+        run: docker compose -f dev/cluster/docker-compose.yml logs --tail 200 || true
+
   build:
     name: Build the plugin bundle
     runs-on: ubuntu-latest
