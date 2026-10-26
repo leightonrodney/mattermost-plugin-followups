@@ -165,16 +165,17 @@ Executed here:
 - `make dist` — bundle built, 37 MB, all five platform binaries present
 - `build/check-bundle.sh` — manifest, icon, webapp bundle, all five server
   binaries present, and the bundled manifest version matches the build
-- `go vet -tags integration ./server/...` — the integration suite compiles
+- `make test-integration` — 7 integration tests against Mattermost 12.0.1 Team
+  Edition, all passing, including end-to-end reminder delivery
 
-## What has *not* been run
+### Integration — 7 tests, all passing against a real server
 
-**The integration suite in `server/integration_test.go` has not been executed.**
-It needs Docker, which was not available on the machine this was built on. The
-file compiles (`go vet -tags integration ./server/...` passes) but its
-assertions are unverified.
+Executed on 26 October 2026 against **Mattermost 12.0.1 Team Edition**
+(`mattermost/mattermost-team-edition:latest`), started in Docker by
+testcontainers. The whole `server` package, unit and integration together, took
+141 seconds.
 
-It covers, when run:
+It covers:
 
 - that the plugin installs into a real Mattermost server and activates;
 - that its API answers an authenticated request and refuses an unauthenticated
@@ -185,6 +186,11 @@ It covers, when run:
   the owner's reminder is untouched by the attempt;
 - that a reminder set 35 seconds ahead is actually delivered as a direct message
   from the bot, and that its stored status becomes `delivered`.
+
+The one that matters most is `TestADueReminderIsDelivered`, which took 56
+seconds because it waits for a real scheduler tick. Everything else only proves
+the plugin *starts*; this is the only test anywhere that watches a reminder
+actually come due and arrive as a direct message from the bot on a real server.
 
 To run it:
 
@@ -208,15 +214,14 @@ before a release.
 It takes several minutes: it pulls a Mattermost image, resets the database
 between tests, and the delivery test waits for a real scheduler tick.
 
-**Also not verified:**
+**Still not verified:**
 
+- **The declared `min_server_version` of 9.5.0.** The suite has only been run
+  against latest. Pin the image to 9.5 and run it again before a release.
 - Behaviour on a multi-node cluster. The design uses `cluster.Schedule` and
   per-reminder compare-and-set claiming for exactly this case, and the
   concurrency is tested in-process, but it has not been run against two real
   nodes.
-- Behaviour on Mattermost versions other than whatever
-  `make test-integration` pulls. The `min_server_version` of 9.5.0 is derived
-  from API availability.
 - The mobile apps. Reminders are ordinary direct messages, so they should
   follow the normal push path, but this has not been confirmed on a device.
 - Screen readers. The component tests assert roles and accessible names, which

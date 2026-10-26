@@ -58,12 +58,17 @@ First release.
   buckets. A plugin disabled for more than 90 days loses the index for that
   window; those reminders remain visible as overdue and can be rescheduled.
 
+### Verified
+
+- The integration suite installs the plugin into a real Mattermost 12.0.1 Team
+  Edition server and passes all seven of its tests, including one that waits for
+  a reminder to come due and confirms it arrives as a direct message.
+
 ### Known gaps
 
-- The end-to-end integration suite is written but has not been executed; it
-  needs Docker. See [docs/TESTING.md](docs/TESTING.md).
-- Not verified against a multi-node cluster, or against each supported server
-  version. The `min_server_version` of 9.5.0 is derived from API availability.
+- Not yet run against the declared minimum server version of 9.5.0, nor against
+  a multi-node cluster. See [docs/TESTING.md](docs/TESTING.md).
+- Mobile push delivery has not been confirmed on a device.
 - No screenshots yet.
 
 [Unreleased]: https://github.com/leightonrodney/mattermost-plugin-followups/compare/v0.1.0...HEAD
