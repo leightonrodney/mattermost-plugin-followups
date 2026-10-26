@@ -347,10 +347,29 @@ licensed HA deployment.
 
 **Still not verified:**
 
-- **A licensed HA deployment.** Two real nodes are now tested — see the section
+- **A licensed HA deployment.** Two real nodes are tested — see the section
   above — but with clustering itself switched off, because Mattermost gates it
-  behind an Enterprise licence. What a licensed cluster would add is the cluster
-  bus and node lifecycle, neither of which this plugin uses.
+  behind an Enterprise licence.
+
+  The test for it is written and waiting: `TestLicensedHACluster` installs a
+  licence, turns `ClusterSettings` on, restarts both nodes, waits for them to
+  join over the gossip bus, refuses to continue unless the cluster actually
+  formed, and then applies the same exactly-once assertion as the unlicensed
+  run. Supply a licence to run it:
+
+  ```bash
+  cp your-licence.txt dev/cluster/license.txt   # gitignored
+  make test-cluster                             # or MM_LICENSE_FILE=/path/to/it
+  ```
+
+  Without one it skips and says so. **Be precise about what that means:** the
+  path up to the licence gate is exercised — the cluster starts, both nodes
+  activate the plugin, the admin logs in, and an invalid licence is rejected in
+  about thirty seconds with Mattermost's own "Invalid license file." Everything
+  after a *valid* licence — enabling clustering, the gossip bus, membership —
+  has never run. The expected result is no change, because the plugin
+  coordinates through compare-and-set against the shared database and never
+  touches the bus, but that is a belief and not a measurement.
 - **Push on Android, and real delivery through Apple or Google.** The push
   *decision* is no longer a manual check. The cluster suite stands a recorder up
   in the test process, points `PushNotificationServer` at it, attaches a device

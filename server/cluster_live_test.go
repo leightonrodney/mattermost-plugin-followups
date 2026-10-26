@@ -316,7 +316,16 @@ func TestTwoRealNodes(t *testing.T) {
 }
 
 func deliversEachReminderExactlyOnce(t *testing.T) {
-	client := newUser(t, "clusteruser")
+	assertEachReminderArrivesOnce(t, "clusteruser")
+}
+
+// assertEachReminderArrivesOnce is the claim the whole scheduling design rests
+// on, written once so the unlicensed and licensed clusters are held to exactly
+// the same standard.
+func assertEachReminderArrivesOnce(t *testing.T, username string) {
+	t.Helper()
+
+	client := newUser(t, username)
 	me, _, err := client.GetMe(context.Background(), "")
 	require.NoError(t, err)
 
@@ -517,4 +526,97 @@ func asksThePushProxyToNotify(t *testing.T) {
 	}
 	assert.Truef(t, carriesTheReminder,
 		"a push was sent but none carried the reminder's own text %q", text)
+}
+
+// licenceFile is where this test looks for an Enterprise licence, in order.
+// Nothing is bundled and nothing is committed: .gitignore covers both the
+// default path and *.mattermost-license.
+func licenceFile() string {
+	if fromEnv := os.Getenv("MM_LICENSE_FILE"); fromEnv != "" {
+		return fromEnv
+	}
+	return "../dev/cluster/license.txt"
+}
+
+// loginAdmin returns a client for the system admin created at cluster start.
+func loginAdmin(t *testing.T) *model.Client4 {
+	t.Helper()
+
+	client := model.NewAPIv4Client(node1URL)
+	_, _, err := client.Login(context.Background(), "clusteradmin", "Password1!")
+	require.NoError(t, err, "the admin account created at cluster start should log in")
+
+	return client
+}
+
+// TestLicensedHACluster is the one check this project cannot run for itself,
+// because Mattermost gates clustering behind an Enterprise licence.
+//
+// Everything needed to run it is here. Supply a licence — as MM_LICENSE_FILE,
+// or at dev/cluster/license.txt — and it installs it, turns ClusterSettings on,
+// restarts both nodes, waits for them to find each other over the gossip bus,
+// and then holds the plugin to exactly the same exactly-once standard as the
+// unlicensed cluster. Supply nothing and it skips with an explanation.
+//
+// The expected result is "no change", because this plugin coordinates through
+// compare-and-set against the shared database and never touches the cluster
+// bus. That is a reasonable belief rather than a measurement, which is the
+// whole reason to leave this here ready to run.
+func TestLicensedHACluster(t *testing.T) {
+	path := licenceFile()
+
+	licence, err := os.ReadFile(path) //nolint:gosec // path is the operator's own
+	if err != nil {
+		t.Skipf("no Enterprise licence, so clustering cannot be switched on.\n"+
+			"  Put one at %s, or set MM_LICENSE_FILE, and run this again.\n"+
+			"  Without it the two-node test above still runs; it just has no cluster bus.",
+			path)
+	}
+	require.NotEmpty(t, licence, "the licence file at %s is empty", path)
+
+	startCluster(t)
+
+	admin := loginAdmin(t)
+	_, err = admin.UploadLicenseFile(context.Background(), licence)
+	require.NoError(t, err, "the licence should be accepted; an expired one is refused here")
+
+	// ReadOnlyConfig is deliberately off: Mattermost locks configuration when
+	// clustering is on, and the tests still need to change plugin settings.
+	patchConfig(t, `{"ClusterSettings":{
+		"Enable":true,
+		"ClusterName":"followups-test",
+		"UseIPAddress":true,
+		"ReadOnlyConfig":false
+	}}`)
+
+	// Clustering is read at startup, so both nodes have to come back for it.
+	compose(t, "restart", "mattermost1", "mattermost2")
+	waitForServer(t, "node 1", node1URL)
+	waitForServer(t, "node 2", node2URL)
+
+	// Prove the cluster actually formed. Without this the test would quietly
+	// degrade into the unlicensed one and still pass, which is the failure mode
+	// worth guarding against rather than the delivery itself.
+	admin = loginAdmin(t)
+
+	var members []*model.ClusterInfo
+	deadline := time.Now().Add(3 * time.Minute)
+	for time.Now().Before(deadline) {
+		members, _, err = admin.GetClusterStatus(context.Background())
+		if err == nil && len(members) >= 2 {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+	require.NoError(t, err, "should be able to read cluster status with a licence installed")
+	require.GreaterOrEqualf(t, len(members), 2,
+		"the two nodes never joined one cluster, so this is not testing what it claims; saw %d", len(members))
+
+	for _, member := range members {
+		t.Logf("cluster member: hostname=%s ip=%s version=%s config_hash=%s",
+			member.Hostname, member.IPAddress, member.Version, member.ConfigHash)
+	}
+
+	requireActivatedOnBothNodes(t)
+	assertEachReminderArrivesOnce(t, "licenseduser")
 }

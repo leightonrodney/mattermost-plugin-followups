@@ -11,3 +11,8 @@ server/manifest.go
 
 # VS Code
 .vscode
+
+# An Enterprise licence for the HA cluster test. Supplied by whoever runs it,
+# never committed: dev/cluster/license.txt, or MM_LICENSE_FILE pointing anywhere.
+dev/cluster/license.txt
+*.mattermost-license

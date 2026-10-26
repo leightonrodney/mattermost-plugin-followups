@@ -259,7 +259,8 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
   not tested is a licensed deployment with a cluster bus, because Mattermost
   gates clustering behind an Enterprise licence. The plugin does not use the
   bus — its coordination is compare-and-set against the shared database — but
-  that is an argument, not a measurement. See
+  that is an argument, not a measurement. The test is written and skips until a
+  licence is supplied, so anyone holding one can settle it; see
   [docs/TESTING.md](docs/TESTING.md).
 - **Push is confirmed on iOS only.** That the server *asks* for a push, and
   that the request carries the reminder's own text, is checked automatically on
