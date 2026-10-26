@@ -56,9 +56,9 @@ current plugin API.
 - Mattermost Server **v9.5.0 or later**
 - No database, container or external service beyond Mattermost itself
 
-> The minimum version is derived from the plugin APIs this plugin calls, all of
-> which have been available since well before v9.5. It has been exercised
-> end-to-end against v12.0.1 but not yet against v9.5 itself; see
+> The integration suite passes end-to-end against both v9.5 and v12.0.1 Team
+> Edition, so the minimum is measured rather than inferred. The releases in
+> between have not been run; see
 > [Compatibility and limitations](#compatibility-and-limitations).
 
 ## Installation
@@ -228,11 +228,10 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
   they are not delivered automatically.
 - **Reminder delivery depends on the Follow-ups bot account.** If an
   administrator deactivates it, reminders stop arriving.
-- **Verified against Mattermost 12.0.1 Team Edition only.** The integration
-  suite installs the plugin into a real server and checks that a reminder is
-  genuinely delivered, but it has not yet been run against the declared minimum
-  of 9.5.0, nor against a multi-node cluster. See
-  [docs/TESTING.md](docs/TESTING.md).
+- **Not verified on a multi-node cluster.** The integration suite installs the
+  plugin into a real server and checks that a reminder is genuinely delivered,
+  and it passes at both ends of the supported range — 9.5 and 12.0.1 — but it
+  runs against a single node. See [docs/TESTING.md](docs/TESTING.md).
 - **No screenshots yet.** None are included because none have been captured from
   a real installation, and invented ones would be worse than none.
 

@@ -165,15 +165,22 @@ Executed here:
 - `make dist` — bundle built, 37 MB, all five platform binaries present
 - `build/check-bundle.sh` — manifest, icon, webapp bundle, all five server
   binaries present, and the bundled manifest version matches the build
-- `make test-integration` — 7 integration tests against Mattermost 12.0.1 Team
-  Edition, all passing, including end-to-end reminder delivery
+- `make test-integration` — 7 integration tests against Mattermost 12.0.1 and
+  again against 9.5, both Team Edition, all passing, including end-to-end
+  reminder delivery
 
 ### Integration — 7 tests, all passing against a real server
 
-Executed on 26 October 2026 against **Mattermost 12.0.1 Team Edition**
-(`mattermost/mattermost-team-edition:latest`), started in Docker by
-testcontainers. The whole `server` package, unit and integration together, took
-141 seconds.
+Executed on 26 October 2026 against two versions of **Mattermost Team Edition**
+— the community build — started in Docker by testcontainers:
+
+| Version | Image | Result | `server` package |
+|:--|:--|:--|--:|
+| 12.0.1 (latest) | `mattermost-team-edition:latest` | 7/7 passing | 141s |
+| 9.5 (declared minimum) | `mattermost-team-edition:9.5` | 7/7 passing | 108s |
+
+Both ends of the supported range are therefore measured rather than inferred.
+Versions in between — the 10.x and 11.x lines — have not been run.
 
 It covers:
 
@@ -216,8 +223,6 @@ between tests, and the delivery test waits for a real scheduler tick.
 
 **Still not verified:**
 
-- **The declared `min_server_version` of 9.5.0.** The suite has only been run
-  against latest. Pin the image to 9.5 and run it again before a release.
 - Behaviour on a multi-node cluster. The design uses `cluster.Schedule` and
   per-reminder compare-and-set claiming for exactly this case, and the
   concurrency is tested in-process, but it has not been run against two real

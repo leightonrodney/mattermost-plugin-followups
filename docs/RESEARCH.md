@@ -56,9 +56,9 @@ Mattermost's current Extended Support Release at the time of writing is v11.7,
 and ESRs are supported for twelve months. A `min_server_version` of 9.5.0 covers
 that and several releases before it.
 
-> **This has not been verified by running against each supported server
-> version.** It is derived from when each API became available. The integration
-> suite that would verify it needs Docker; see [TESTING.md](TESTING.md).
+> **Measured, not just inferred.** The integration suite passes end-to-end
+> against both v9.5 and v12.0.1 Team Edition. The releases in between have not
+> been run; see [TESTING.md](TESTING.md).
 
 ## APIs verified
 

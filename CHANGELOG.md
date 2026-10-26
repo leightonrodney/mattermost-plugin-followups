@@ -60,14 +60,15 @@ First release.
 
 ### Verified
 
-- The integration suite installs the plugin into a real Mattermost 12.0.1 Team
-  Edition server and passes all seven of its tests, including one that waits for
-  a reminder to come due and confirms it arrives as a direct message.
+- The integration suite installs the plugin into a real Mattermost server and
+  passes all seven of its tests, including one that waits for a reminder to come
+  due and confirms it arrives as a direct message. Run against both ends of the
+  supported range: 12.0.1 and 9.5, Team Edition.
 
 ### Known gaps
 
-- Not yet run against the declared minimum server version of 9.5.0, nor against
-  a multi-node cluster. See [docs/TESTING.md](docs/TESTING.md).
+- Not run on a multi-node cluster, nor against the 10.x and 11.x lines in
+  between. See [docs/TESTING.md](docs/TESTING.md).
 - Mobile push delivery has not been confirmed on a device.
 - No screenshots yet.
 
