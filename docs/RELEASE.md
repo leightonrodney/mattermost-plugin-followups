@@ -55,7 +55,9 @@ on, and the only test anywhere that proves it against a real server.
       back to it.
 - [ ] **A dark theme.** Switch to Onyx and look at the dialog and the sidebar.
       A test asserts no colour is hard-coded, which is not the same as the
-      result being readable.
+      result being readable. Contrast was measured on 26 October 2026 and every
+      element clears WCAG AA except the primary button, which matches
+      Mattermost's own; see docs/TESTING.md.
 - [ ] **A mobile client.** Confirm a reminder arrives as a push notification.
       The suite checks the post is the kind the server will notify about; it
       cannot check that a phone buzzes.

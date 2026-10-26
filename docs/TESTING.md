@@ -171,7 +171,29 @@ assertion in the component tests finds controls **by role and accessible name**
 rather than by class or test ID, so a change that breaks the accessible name
 breaks the tests.
 
-**Theme compatibility** — the stylesheet is scanned directly: no hard-coded hex
+**Theme compatibility, measured** — on 26 October 2026 the rendered contrast
+of every text element was measured in the browser against the Onyx dark theme,
+flattening alpha onto the real background rather than trusting the declared
+colour:
+
+| Element | Ratio | WCAG AA (4.5 normal, 3.0 UI) |
+|:--|--:|:--|
+| Reminder text, tab labels, inputs, dialog fields | 13.57 | pass |
+| Summary line | 8.11 | pass |
+| Inactive tab | 7.57 | pass |
+| Due time, repeat rule, character count | 6.25 | pass |
+| Cancel (danger) | 5.21 | pass |
+| **Primary button ("Add", "Save changes")** | **3.93** | fails AA for normal text, passes for UI components |
+
+The primary button is worth explaining rather than hiding. It uses Mattermost's
+own `--button-bg` with `--button-color`, and the product's own primary buttons
+measure **exactly 3.93 in the same theme** — "Invite others to the workspace"
+was sampled alongside it for comparison. Picking a different colour would make
+the plugin's buttons fail to match every other button in the product, which is
+the opposite of the goal. The contrast characteristic belongs to the Mattermost
+theme, and that is where it would have to be fixed.
+
+**Theme compatibility, statically** — the stylesheet is scanned directly: no hard-coded hex
 colour, no `rgb()`/`rgba()` literal except neutral black overlays for shadows
 and the dialog backdrop, the Mattermost theme custom properties are used, and
 every class is namespaced to the plugin. This is checked on the source rather
