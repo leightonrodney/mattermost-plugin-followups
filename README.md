@@ -264,6 +264,64 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
   has not been tried, and the check used Mattermost's test push proxy rather
   than a production one.
 
+## Troubleshooting
+
+**`/remind` is not recognised, or nothing happens.**
+Check the plugin is enabled in **System Console → Plugins → Management**, then
+look in the server log for `Follow-ups activated`. If the plugin is enabled but
+that line is absent, it failed to start and the log will say why on the lines
+just before.
+
+**There is no "Remind me" on a message.**
+It is in the message's **Actions** menu, not the `...` overflow. Mattermost has
+its own built-in "Remind" in the overflow menu; this plugin's entry is a
+separate thing in a separate menu.
+
+**A reminder never arrived.**
+In order of likelihood: the **Follow-ups bot account was deactivated**, which
+stops delivery entirely; **Enable reminder delivery** is off in the plugin
+settings; or the plugin was disabled for more than 90 days, after which the
+index entries for that window are gone and the reminder stays visible as overdue
+rather than being delivered. The reminder itself is never lost.
+
+**It arrived in Mattermost but my phone did not buzz.**
+Reminders are ordinary direct messages from a bot, so they follow the server's
+normal push path and depend on it being configured. If pushes work elsewhere but
+not for these, the usual cause is a stale device session, which the server logs
+as `"type":"push","status":"not_sent"` with `reason":"session_expired"` — log
+out and back in on the device. Note that the server **does not log successful
+pushes** at debug level, so an empty log is not evidence that nothing was sent.
+
+**A reminder fired at the wrong time.**
+Reminders are computed in the timezone you had when you created them, not the
+one you have now. Changing your Mattermost timezone leaves existing reminders on
+the old one. Around a daylight-saving change, a wall-clock reminder such as
+`every day at 9am` stays at 9am local.
+
+**"You already have too many reminders."**
+You have hit the per-user quota. The limits are **Maximum active reminders per
+user** and **Maximum recurring reminders per user**, both in the plugin
+settings. Completing or cancelling a reminder frees a slot.
+
+**The System Console will not accept the plugin bundle.**
+Plugin uploads must be enabled: `PluginSettings.EnableUploads`. On a server where
+uploads are deliberately off, install it on disk instead.
+
+**The log says `No signature when persisting plugin to filestore`.**
+Expected, and not an error. It appears for any bundle an administrator uploads
+by hand. Signature checks apply to Marketplace and pre-packaged installs.
+
+## Getting help
+
+Open an issue at
+[github.com/leightonrodney/mattermost-plugin-followups/issues](https://github.com/leightonrodney/mattermost-plugin-followups/issues).
+Please say which Mattermost version and which plugin version you are on, and
+include the relevant server log lines — reminder text is never logged, so those
+lines are safe to paste.
+
+For a suspected security vulnerability, do not open a public issue; follow
+[SECURITY.md](SECURITY.md) instead.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and pull requests are welcome.
