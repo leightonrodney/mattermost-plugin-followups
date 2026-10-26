@@ -6,21 +6,24 @@ consciously left out.
 
 ## Verification first
 
-These are not features, and they come before any of them. v0.1.0 ships with
-gaps in what has actually been *run*, and closing them is the highest-value
-work available.
+These are not features, and they come before any of them. Most of the gaps
+v0.1.0 started with have since been closed; what is left is listed honestly
+below, because an unverified claim is worse than an absent feature.
 
-1. **Run the integration suite.** `server/integration_test.go` is written and
-   compiles, but has never been executed; it needs Docker. Until it runs, the
-   claims that the plugin installs, activates, registers its command and
-   delivers a real reminder rest on unit tests alone.
-2. **Test against a real cluster.** The design uses `cluster.Schedule` plus
-   per-reminder compare-and-set claiming precisely for the multi-node case, and
-   the concurrency is covered in-process, but two real nodes have never run it.
-   Worth doing before anyone deploys it at scale.
-3. **Test against the oldest supported server.** `min_server_version` is 9.5.0,
-   derived from when each API became available rather than from testing. Pin the
-   integration suite's image to that version and confirm.
+1. ~~**Run the integration suite.**~~ Done. It runs in CI on every push, against
+   Mattermost 9.5 and latest, and covers install, activation, command
+   registration, a real scheduler tick delivering a reminder, and a
+   disable/wait/re-enable cycle that only passes if the schedule survived in
+   the database.
+2. **Test against a real licensed cluster.** Partly done. Multi-node
+   coordination is now tested by sharing one key-value store between plugin
+   instances — the exact mechanism the plugin depends on — covering single
+   delivery, cursor sharing and a node dying mid-claim. What is still untried is
+   a licensed HA deployment with a cluster bus: two Mattermost containers
+   against one Postgres. Worth doing before anyone deploys it at scale.
+3. ~~**Test against the oldest supported server.**~~ Done. `min_server_version`
+   is 9.5.0, and the integration suite runs against that image in CI alongside
+   latest, so the claim is tested rather than derived from API availability.
 4. ~~**Confirm mobile delivery.**~~ Done on iOS, 26 October 2026. Android is
    still untried.
 5. ~~**Capture screenshots.**~~ Done — see `docs/images/`. Taken from a real

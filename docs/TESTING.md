@@ -294,12 +294,7 @@ between tests, and the delivery test waits for a real scheduler tick.
   `MlvlNotificationTrace`, which is off by default. An empty log is not evidence
   that nothing was sent — the only reliable confirmation is the device itself.
   A `session_expired` reason means the device is attached to a stale session;
-  log out and back in on the device to mint a fresh one. The design uses `cluster.Schedule` and
-  per-reminder compare-and-set claiming for exactly this case, and the
-  concurrency is tested in-process, but it has not been run against two real
-  nodes.
-- The mobile apps. Reminders are ordinary direct messages, so they should
-  follow the normal push path, but this has not been confirmed on a device.
+  log out and back in on the device to mint a fresh one.
 - Screen readers. The component tests assert roles and accessible names, which
   is not the same as using one.
 
