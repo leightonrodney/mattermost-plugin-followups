@@ -475,7 +475,19 @@ func asksThePushProxyToNotify(t *testing.T) {
 		"PushNotificationContents":"full"
 	}}`, port))
 
+	// Both nodes have to come back for that to take effect. The configuration
+	// lives in the shared database, but with clustering off there is no cluster
+	// bus to tell the other node it changed, so it goes on serving the copy it
+	// read at boot. Skip this and the test passes or fails depending on which
+	// node happens to hold the scheduler lock — the one that did not get the
+	// news refuses the push with reason "push_disabled".
+	compose(t, "restart", "mattermost1", "mattermost2")
+	waitForServer(t, "node 1", node1URL)
+	waitForServer(t, "node 2", node2URL)
+
 	client := newUser(t, "pushuser")
+	me, _, err := client.GetMe(context.Background(), "")
+	require.NoError(t, err)
 
 	// The platform prefix has to be one the server allows, and the allowlist is
 	// narrower than the push payloads suggest: only the React Native platforms
@@ -502,12 +514,18 @@ func asksThePushProxyToNotify(t *testing.T) {
 		time.Sleep(5 * time.Second)
 	}
 
+	// Whether the reminder arrived at all decides what a failure here means, so
+	// find out before asserting rather than leaving the next reader to guess.
+	arrived := botMessages(t, client, me.Id)
+
 	mu.Lock()
 	defer mu.Unlock()
 
 	require.NotEmptyf(t, captured,
-		"the server never contacted the push proxy for a delivered reminder; "+
-			"the reminder itself arriving is checked separately, so this is about the push decision")
+		"no push was requested. The reminder itself %s, so this is a failure of %s. "+
+			"Check the node logs for \"type\":\"push\" and its reason.",
+		map[bool]string{true: "did arrive", false: "never arrived either"}[len(arrived) > 0],
+		map[bool]string{true: "the push decision", false: "delivery, not push"}[len(arrived) > 0])
 
 	for _, push := range captured {
 		t.Logf("push to %s: %v", push.path, push.body)
