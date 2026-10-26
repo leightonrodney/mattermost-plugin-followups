@@ -53,7 +53,12 @@ services:
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
       MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mmuser-password@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
-      MM_SERVICESETTINGS_SITEURL: http://localhost:8065
+      # Overridable, because a mobile or tunnel test needs a different one and a
+      # setting supplied through the environment cannot be changed at runtime:
+      # Mattermost lets the environment win over the config file, so mmctl
+      # reports success and nothing actually moves.
+      #   MM_SITE_URL=https://example.trycloudflare.com make dev-server
+      MM_SERVICESETTINGS_SITEURL: ${MM_SITE_URL:-http://localhost:8065}
 
       # Lets mmctl administer the server over a unix socket, so creating the
       # admin account needs no token and no click-through.
