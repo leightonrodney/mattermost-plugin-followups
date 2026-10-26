@@ -70,7 +70,6 @@ First release.
 - Not run on a multi-node cluster, nor against the 10.x and 11.x lines in
   between. See [docs/TESTING.md](docs/TESTING.md).
 - Mobile push delivery has not been confirmed on a device.
-- No screenshots yet.
 
 [Unreleased]: https://github.com/leightonrodney/mattermost-plugin-followups/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/leightonrodney/mattermost-plugin-followups/releases/tag/v0.1.0

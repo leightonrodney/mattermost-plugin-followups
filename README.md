@@ -29,6 +29,26 @@ The older community `/remind` plugin covered some of this, but it was
 and was never in the Marketplace. This is a fresh implementation against the
 current plugin API.
 
+## Screenshots
+
+**Your reminders, in a sidebar that follows the Mattermost theme**
+
+| Default theme | Dark theme |
+|:--|:--|
+| ![The Follow-ups sidebar on the Denim theme](docs/images/sidebar-light.jpg) | ![The same sidebar on the Onyx theme](docs/images/sidebar-dark.jpg) |
+
+**Set one from any message** — in the **Actions** menu, not the `…` menu:
+
+![The Actions menu on a message, showing Remind me](docs/images/actions-menu.jpg)
+
+**Pick a time, or let it repeat:**
+
+![The Set a reminder dialog](docs/images/reminder-dialog.jpg)
+
+**It arrives as a direct message, with snooze and done built in:**
+
+![A delivered reminder with snooze buttons](docs/images/delivered-reminder.jpg)
+
 ## Features
 
 - **`/remind` with plain-English times.** `in 30 minutes`, `tomorrow at 9am`,
@@ -237,8 +257,6 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
   plugin into a real server and checks that a reminder is genuinely delivered,
   and it passes at both ends of the supported range — 9.5 and 12.0.1 — but it
   runs against a single node. See [docs/TESTING.md](docs/TESTING.md).
-- **No screenshots yet.** None are included because none have been captured from
-  a real installation, and invented ones would be worse than none.
 
 ## Contributing
 

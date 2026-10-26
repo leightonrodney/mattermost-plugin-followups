@@ -23,8 +23,8 @@ work available.
    integration suite's image to that version and confirm.
 4. **Confirm mobile delivery.** Reminders are ordinary direct messages, so push
    should work, but it has not been seen on a device.
-5. **Capture screenshots.** Needed for the Marketplace listing, and the README
-   is weaker without them.
+5. ~~**Capture screenshots.**~~ Done — see `docs/images/`. Taken from a real
+   installation on Mattermost 12.0.1 Team Edition.
 
 ## Features
 
