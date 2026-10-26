@@ -7,20 +7,7 @@ this project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing affecting the plugin itself.
-
-### Testing
-
-- The licensed HA cluster gap is closed. 1.0.0 shipped saying a licensed
-  deployment was untested; it has since been run against Enterprise Edition
-  12.0.1 with clustering enabled, two nodes joining one cluster, and delivery
-  unchanged. See docs/TESTING.md.
-- `dev/cluster/docker-compose.yml` takes `MM_EDITION`, and the licensed test
-  refuses to run on a build that cannot cluster. As shipped in 1.0.0 that test
-  pinned the Team Edition image, where no licence could ever have enabled
-  clustering — the enterprise code is absent from that binary rather than
-  switched off. It would have failed on the membership check with nothing to
-  explain why.
+Nothing yet.
 
 ## [1.0.0] - 2026-10-26
 
@@ -90,15 +77,18 @@ are fixed here. Nothing was released in between.
 - A reminder arriving as a push notification on a locked iPhone, showing its own
   text rather than a generic placeholder. Confirmed by hand, once.
 - axe-core over the dialog, the sidebar and a reminder row, with no violations.
+- **A licensed two-node cluster**, once, on Enterprise Edition 12.0.1: the
+  licence installed, clustering came on, the two nodes joined one cluster, and
+  reminders due at the same moment still arrived exactly once. The trial licence
+  behind that expires, so CI runs the unlicensed equivalent and skips this.
 
 ### Known gaps
 
-- **No licensed HA deployment.** Two real nodes are tested, but with clustering
-  switched off, because Mattermost gates it behind an Enterprise licence. The
-  test for it is written and skips until a licence is supplied. The plugin
-  coordinates through compare-and-set against the shared database and never
-  uses the cluster bus, so the expected result is no change — an argument, not
-  a measurement.
+- **Not tested at scale.** A two-node licensed cluster *is* tested — Enterprise
+  Edition 12.0.1 with clustering enabled, both nodes joining over the gossip
+  bus, delivery unchanged — and the unlicensed two-node equivalent runs in CI.
+  What no test here reaches is more than two nodes, or the 60k concurrent
+  connections the Marketplace asks about; there is no public tool for that.
 - **Not run against the 10.x and 11.x lines**, only 9.5 and latest.
 - **Push is confirmed on iOS only**, by hand, through Mattermost's test proxy.
   Android is untried, and real delivery through Apple or Google is outside what
