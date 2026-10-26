@@ -58,6 +58,20 @@ jobs:
             exit 1
           fi
 
+          # release_notes_url carries the version too, and nothing else would
+          # notice it going stale. The Marketplace reads this field, so a wrong
+          # one quietly sends people to the previous release's notes.
+          notes_url="$(python3 -c 'import json;print(json.load(open("plugin.json"))["release_notes_url"])')"
+          echo "release_notes_url=$notes_url"
+          case "$notes_url" in
+            */releases/tag/"$tag") ;;
+            *)
+              echo "release_notes_url does not end with /releases/tag/$tag."
+              echo "Point it at this release before tagging."
+              exit 1
+              ;;
+          esac
+
       # Forgetting the changelog is the easiest mistake to make at release time
       # and the most annoying to correct afterwards, because the release notes
       # are already out. Checked before anything is built.

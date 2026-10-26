@@ -9,6 +9,34 @@ this project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.1.1] - 2026-10-26
+
+One accessibility fix. Nothing else in the plugin's behaviour changed, so
+upgrading matters only if anyone uses the sidebar with a screen reader.
+
+### Fixed
+
+- **The sidebar's tabs referred to panels that were not there.** All three tabs
+  carried `aria-controls`, but only the selected tab's panel is ever rendered,
+  so two of them always pointed at an element id absent from the document. A
+  screen reader following that reference finds nothing. Only the selected tab
+  now claims to control a panel.
+
+### Notes for anyone verifying this
+
+The fix is guarded by a test that walks every `aria-controls`,
+`aria-labelledby`, `aria-describedby` and `aria-owns` in the rendered markup and
+asserts each id resolves. That check exists because **axe-core does not catch
+this**: `aria-valid-attr-value` passes a dangling reference. axe now runs over
+the dialog, the sidebar and a reminder row as part of the suite and reports no
+violations, which is how it was established that this was the one real defect
+rather than one of many.
+
+Not user-facing, but worth knowing if you are assessing the project: two real
+Mattermost nodes against one Postgres now run in CI, and the server's push
+request is verified against a recorder rather than by reading logs. See
+docs/TESTING.md.
+
 ## [0.1.0] - 2026-10-25
 
 First release.

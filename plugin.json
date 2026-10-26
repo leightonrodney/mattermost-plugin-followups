@@ -4,9 +4,9 @@
     "description": "Create one-time and recurring reminders from slash commands or any message, and manage them from a Mattermost-native sidebar. No external services required.",
     "homepage_url": "https://github.com/leightonrodney/mattermost-plugin-followups",
     "support_url": "https://github.com/leightonrodney/mattermost-plugin-followups/issues",
-    "release_notes_url": "https://github.com/leightonrodney/mattermost-plugin-followups/releases/tag/v0.1.0",
+    "release_notes_url": "https://github.com/leightonrodney/mattermost-plugin-followups/releases/tag/v0.1.1",
     "icon_path": "assets/icon.svg",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "min_server_version": "9.5.0",
     "server": {
         "executables": {
