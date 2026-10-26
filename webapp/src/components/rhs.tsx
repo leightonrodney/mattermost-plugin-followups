@@ -196,7 +196,13 @@ export default function RemindersSidebar({config}: Props) {
                         role='tab'
                         id={`followups-tab-${entry.id}`}
                         aria-selected={tab === entry.id}
-                        aria-controls={`followups-panel-${entry.id}`}
+
+                        // Only the selected tab's panel is in the document, so
+                        // only that tab claims to control one. Pointing the
+                        // other two at ids that do not exist leaves a screen
+                        // reader following a dangling reference, and axe does
+                        // not flag it, so nothing but this would catch it.
+                        aria-controls={tab === entry.id ? `followups-panel-${entry.id}` : undefined}
                         className={`followups-tab${tab === entry.id ? ' followups-tab--active' : ''}`}
                         onClick={() => setTab(entry.id)}
                     >
