@@ -388,15 +388,29 @@ ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) run test-ci;
 endif
 
+# The Mattermost image the integration tests run against. Team Edition is the
+# community build and what this plugin targets; the SDK's test helper would
+# otherwise default to the Enterprise image.
+MM_TEST_IMAGE ?= mattermost/mattermost-team-edition:latest
+
 ## Runs the integration tests, which start a real Mattermost server in a
 ## container, install this plugin into it and exercise it over HTTP. Docker must
-## be running. The bundle is built first because the container installs it, and
-## the Mattermost image is published for linux/amd64 only, so that is the one
-## binary the server inside it will look for.
+## be running.
+##
+## Two things about the image are not obvious. It is published for linux/amd64
+## only, so that is the one server binary the container will look for, which is
+## why the bundle is built for that platform. And on an arm64 host the daemon
+## refuses to create the container at all, because it matches the registry
+## manifest against the host platform and finds no arm64 entry. Pulling the
+## image explicitly for amd64 first sidesteps that: once it is present locally
+## the platform is no longer negotiated. Setting DOCKER_DEFAULT_PLATFORM does
+## not work here, because testcontainers uses the Docker API directly and that
+## variable is only read by the CLI.
 .PHONY: test-integration
 test-integration:
+	docker pull --platform linux/amd64 $(MM_TEST_IMAGE)
 	$(MAKE) dist MM_SERVICESETTINGS_ENABLEDEVELOPER=true DEFAULT_GOOS=linux DEFAULT_GOARCH=amd64
-	$(GO) test -tags integration -count 1 -timeout 20m -v ./server/...
+	MM_TEST_IMAGE=$(MM_TEST_IMAGE) $(GO) test -tags integration -count 1 -timeout 20m -v ./server/...
 
 ## Creates a coverage report for the server code.
 .PHONY: coverage

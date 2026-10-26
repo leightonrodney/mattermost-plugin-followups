@@ -33,11 +33,17 @@ services:
       retries: 20
 
   mattermost:
+    # Team Edition is the community build, and the one this plugin targets.
     # Override the version to test against another release, for example:
     #   MM_VERSION=9.5 make dev-server
     # 9.5 is this plugin's declared min_server_version, so it is worth a pass
     # before a release.
-    image: mattermost/mattermost-team-edition:${MM_VERSION:-12.0}
+    image: mattermost/mattermost-team-edition:${MM_VERSION:-latest}
+    # Mattermost publishes this image for linux/amd64 only. Without saying so,
+    # the daemon on an arm64 host matches the registry manifest against the host
+    # platform, finds no arm64 entry and refuses to create the container. Apple
+    # Silicon runs it emulated, which is slower but works.
+    platform: linux/amd64
     restart: unless-stopped
     depends_on:
       postgres:
@@ -67,12 +73,11 @@ services:
       - mattermost-config:/mattermost/config
       - mattermost-plugins:/mattermost/plugins
       - mattermost-client-plugins:/mattermost/client/plugins
-    healthcheck:
-      test: ['CMD-SHELL', 'curl -sf http://localhost:8065/api/v4/system/ping || exit 1']
-      interval: 5s
-      timeout: 5s
-      retries: 60
-      start_period: 30s
+    # No healthcheck here on purpose. This image ships no shell, so a CMD-SHELL
+    # check can never run, and `compose up --wait` then blocks until its retries
+    # are exhausted even though the server is answering perfectly well. dev/up.sh
+    # polls the ping endpoint from the host instead, which does not depend on
+    # what happens to be inside the image.
 
 volumes:
   postgres-data:

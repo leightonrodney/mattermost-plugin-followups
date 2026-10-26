@@ -19,36 +19,54 @@ const commandTrigger = "remind"
 // a collision is handled rather than assumed away.
 const shortIDLength = 6
 
-// registerCommand declares /remind and its autocomplete.
-func (p *Plugin) registerCommand() error {
-	autocomplete := model.NewAutocompleteData(commandTrigger, "[when] to [what]", "Set a reminder for yourself")
+// buildAutocomplete describes /remind to the autocomplete menu.
+//
+// Mattermost rejects an autocomplete node that carries both arguments and
+// subcommands, so the free-form case is a subcommand of its own rather than a
+// text argument hanging off the root. That is why "me" appears here as a
+// subcommand: it is the documented subject of the sentence anyway, and it gives
+// the grammar somewhere to live.
+//
+// The handler does not depend on this shape. It treats anything that is not a
+// recognised subcommand as a reminder to create, so "/remind tomorrow at 9am to
+// vote" still works even though autocomplete only suggests "me".
+func buildAutocomplete() *model.AutocompleteData {
+	root := model.NewAutocompleteData(commandTrigger, "[subcommand]", "Create and manage your reminders")
 
-	autocomplete.AddTextArgument("When to remind you, for example `in 30 minutes` or `every weekday at 9am`", "[when] to [what]", "")
+	create := model.NewAutocompleteData("me", "[when] to [what]", "Set a reminder for yourself")
+	create.AddTextArgument(
+		"When to remind you and what about, for example `in 30 minutes to check the build` or `every weekday at 9am to post the update`",
+		"[when] to [what]", "")
+	root.AddCommand(create)
 
-	list := model.NewAutocompleteData("list", "", "Show your reminders")
-	autocomplete.AddCommand(list)
-
-	cancel := model.NewAutocompleteData("cancel", "[id]", "Cancel a reminder")
-	cancel.AddTextArgument("The reminder's ID, as shown by `/remind list`", "[id]", "")
-	autocomplete.AddCommand(cancel)
-
-	del := model.NewAutocompleteData("delete", "[id]", "Delete a reminder and its history")
-	del.AddTextArgument("The reminder's ID, as shown by `/remind list`", "[id]", "")
-	autocomplete.AddCommand(del)
+	root.AddCommand(model.NewAutocompleteData("list", "", "Show your reminders"))
 
 	snooze := model.NewAutocompleteData("snooze", "[id] [duration]", "Postpone a reminder")
 	snooze.AddTextArgument("The reminder's ID, as shown by `/remind list`", "[id]", "")
 	snooze.AddTextArgument("How long to postpone it, for example `20 minutes`", "[duration]", "")
-	autocomplete.AddCommand(snooze)
+	root.AddCommand(snooze)
 
-	autocomplete.AddCommand(model.NewAutocompleteData("help", "", "Show what /remind understands"))
+	cancel := model.NewAutocompleteData("cancel", "[id]", "Cancel a reminder")
+	cancel.AddTextArgument("The reminder's ID, as shown by `/remind list`", "[id]", "")
+	root.AddCommand(cancel)
 
+	del := model.NewAutocompleteData("delete", "[id]", "Delete a reminder and its history")
+	del.AddTextArgument("The reminder's ID, as shown by `/remind list`", "[id]", "")
+	root.AddCommand(del)
+
+	root.AddCommand(model.NewAutocompleteData("help", "", "Show what /remind understands"))
+
+	return root
+}
+
+// registerCommand declares /remind with the server.
+func (p *Plugin) registerCommand() error {
 	return p.client.SlashCommand.Register(&model.Command{
 		Trigger:          commandTrigger,
 		AutoComplete:     true,
 		AutoCompleteDesc: "Set a reminder for yourself",
 		AutoCompleteHint: "[when] to [what]",
-		AutocompleteData: autocomplete,
+		AutocompleteData: buildAutocomplete(),
 		DisplayName:      "Follow-ups",
 		Description:      "Create and manage reminders",
 	})
