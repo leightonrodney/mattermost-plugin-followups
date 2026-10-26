@@ -8,6 +8,10 @@ Report it privately through GitHub's
 [private vulnerability reporting](https://github.com/leightonrodney/mattermost-plugin-followups/security/advisories/new)
 on this repository. That opens a draft advisory only the maintainers can see.
 
+If you would rather not use GitHub, email **leighton.rodney@mattermost.com**
+instead. Either route reaches the same person; the advisory is preferred only
+because it keeps the report, the fix and the disclosure in one place.
+
 Please include:
 
 - what the issue is and what an attacker could do with it;
