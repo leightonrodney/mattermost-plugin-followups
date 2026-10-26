@@ -31,7 +31,19 @@ services:
       retries: 30
 
   mattermost1: &node
-    image: mattermost/mattermost-team-edition:${MM_VERSION:-latest}
+    # Team Edition by default, because that is the build this plugin targets.
+    #
+    # The licensed cluster test needs the other one. Enterprise features are not
+    # gated at runtime — they are simply absent from the Team Edition binary,
+    # which reports BuildEnterpriseReady=false and logs "no license is expected
+    # on Team Edition". A licence cannot switch on clustering there because the
+    # clustering code is not in the image. Hence MM_EDITION:
+    #
+    #   MM_EDITION=enterprise make test-cluster
+    #
+    # The enterprise image runs unlicensed with the same feature set as Team
+    # Edition, so this changes nothing for the unlicensed tests.
+    image: mattermost/mattermost-${MM_EDITION:-team}-edition:${MM_VERSION:-latest}
     platform: linux/amd64
     depends_on:
       postgres:

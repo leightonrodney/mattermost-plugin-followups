@@ -556,6 +556,28 @@ func licenceFile() string {
 	return "../dev/cluster/license.txt"
 }
 
+// requireEnterpriseBuild stops the test unless the running image can cluster
+// at all.
+func requireEnterpriseBuild(t *testing.T) {
+	t.Helper()
+
+	response, err := http.Get(node1URL + "/api/v4/config/client?format=old") //nolint:noctx
+	require.NoError(t, err)
+	defer func() { _ = response.Body.Close() }()
+
+	var config map[string]any
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&config))
+
+	if config["BuildEnterpriseReady"] != "true" {
+		t.Fatalf("this is a Team Edition build (BuildEnterpriseReady=%v), which has no "+
+			"clustering code for a licence to unlock.\n"+
+			"  Run it against the other image:  MM_EDITION=enterprise make test-cluster\n"+
+			"  The enterprise image is identical in behaviour until a licence is applied.",
+			config["BuildEnterpriseReady"])
+	}
+	t.Log("enterprise build confirmed; a licence can enable clustering here")
+}
+
 // loginAdmin returns a client for the system admin created at cluster start.
 func loginAdmin(t *testing.T) *model.Client4 {
 	t.Helper()
@@ -593,6 +615,14 @@ func TestLicensedHACluster(t *testing.T) {
 	require.NotEmpty(t, licence, "the licence file at %s is empty", path)
 
 	startCluster(t)
+
+	// A licence cannot switch clustering on in a build that does not contain
+	// it. Team Edition is not Enterprise-with-features-disabled: the enterprise
+	// code is absent, the server reports BuildEnterpriseReady=false, and it
+	// logs "no license is expected on Team Edition". Without this check the
+	// test would install the licence, enable ClusterSettings, restart, and then
+	// fail on the membership guard with nothing to explain why.
+	requireEnterpriseBuild(t)
 
 	admin := loginAdmin(t)
 	_, err = admin.UploadLicenseFile(context.Background(), licence)

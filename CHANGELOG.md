@@ -7,7 +7,20 @@ this project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+Nothing affecting the plugin itself.
+
+### Testing
+
+- The licensed HA cluster gap is closed. 1.0.0 shipped saying a licensed
+  deployment was untested; it has since been run against Enterprise Edition
+  12.0.1 with clustering enabled, two nodes joining one cluster, and delivery
+  unchanged. See docs/TESTING.md.
+- `dev/cluster/docker-compose.yml` takes `MM_EDITION`, and the licensed test
+  refuses to run on a build that cannot cluster. As shipped in 1.0.0 that test
+  pinned the Team Edition image, where no licence could ever have enabled
+  clustering — the enterprise code is absent from that binary rather than
+  switched off. It would have failed on the membership check with nothing to
+  explain why.
 
 ## [1.0.0] - 2026-10-26
 

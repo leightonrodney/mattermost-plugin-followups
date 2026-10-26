@@ -347,9 +347,18 @@ licensed HA deployment.
 
 **Still not verified:**
 
-- **A licensed HA deployment.** Two real nodes are tested — see the section
-  above — but with clustering itself switched off, because Mattermost gates it
-  behind an Enterprise licence.
+- ~~**A licensed HA deployment.**~~ Done on 26 October 2026 — see "A licensed
+  cluster" below. What remains untested at any licence level is more than two
+  nodes, and anything resembling production load.
+
+  Historical note, kept because it cost time: this gap could not be closed by
+  supplying a licence to the usual test image. Clustering is **absent from the
+  Team Edition binary**, not disabled in it. Team Edition reports
+  `BuildEnterpriseReady=false` and logs "no license is expected on Team
+  Edition", and `POST /api/v4/trial-license` answers 403 "Feature requires an
+  upgrade to Enterprise Edition" — you cannot even ask for a trial from it. The
+  enterprise image behaves identically until a licence is applied, which is why
+  `MM_EDITION` exists.
 
   The test for it is written and waiting: `TestLicensedHACluster` installs a
   licence, turns `ClusterSettings` on, restarts both nodes, waits for them to
@@ -403,6 +412,36 @@ licensed HA deployment.
   log out and back in on the device to mint a fresh one.
 - Screen readers. The component tests assert roles and accessible names, which
   is not the same as using one.
+
+### A licensed cluster — passing
+
+Run with `MM_EDITION=enterprise make test-cluster`, given a licence at
+`dev/cluster/license.txt` or `MM_LICENSE_FILE`. Executed on 26 October 2026
+against **Mattermost Enterprise Edition 12.0.1** with a trial licence
+(`SkuShortName: advanced`, `Cluster: true`):
+
+| Check | Result |
+|:--|:--|
+| The build can cluster at all (`BuildEnterpriseReady`) | confirmed before anything else |
+| Licence installs, `ClusterSettings` enabled, both nodes restarted | passing |
+| The two nodes join one cluster | passing — two members, gossip address `…:8074` |
+| Six reminders due at once, each delivered exactly once | passing |
+
+This is the measurement that the plugin's own documentation previously had to
+argue for: the coordination is compare-and-set against the shared database and
+does not use the cluster bus, so turning the bus on changes nothing. It now
+changes nothing *observably*, rather than by reasoning.
+
+Two honest caveats. The cluster status endpoint reported one member in full and
+the second by hostname only, with no version or config hash; two members is what
+the test requires and what it got, but the two entries are not symmetrical. And
+the licence is a 30-day trial, so this is a point-in-time result rather than
+something CI can repeat — CI still runs the unlicensed two-node job, and the
+licensed test skips there.
+
+It is not a test of scale. Two containers on one host say nothing about 60k
+concurrent connections, which the Marketplace asks about and which no public
+tool measures.
 
 ## A lesson about clocks
 

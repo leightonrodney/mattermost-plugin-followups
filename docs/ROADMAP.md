@@ -15,15 +15,16 @@ honestly below, because an unverified claim is worse than an absent feature.
    registration, a real scheduler tick delivering a reminder, and a
    disable/wait/re-enable cycle that only passes if the schedule survived in
    the database.
-2. **Test against a licensed HA cluster.** Blocked on a licence, not on work.
-   Two real Mattermost servers against one Postgres run in CI, each with its
-   own plugin process, and reminders due at the same moment arrive exactly
-   once; contention on the per-reminder claim is covered in-process, where the
-   cluster lock can be bypassed deliberately.
+2. ~~**Test against a licensed HA cluster.**~~ Done on 26 October 2026,
+   against Enterprise Edition 12.0.1 with clustering enabled: the two nodes
+   joined one cluster and delivery was unchanged. `TestLicensedHACluster`
+   reruns it given a licence; CI runs the unlicensed two-node job and skips
+   this one.
 
-   `TestLicensedHACluster` covers the rest and skips until someone supplies a
-   licence — see docs/TESTING.md for how. Anyone with an Enterprise key can
-   close this in the time it takes to copy a file.
+   What is left is **scale**, which is a different question and a harder one:
+   more than two nodes, and the 60k concurrent connections the Marketplace asks
+   about. No public tool measures that, so it is checked by a Mattermost
+   developer during review rather than by anything here.
 3. ~~**Test against the oldest supported server.**~~ Done. `min_server_version`
    is 9.5.0, and the integration suite runs against that image in CI alongside
    latest, so the claim is tested rather than derived from API availability.

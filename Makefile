@@ -402,6 +402,12 @@ MM_TEST_IMAGE ?= mattermost/mattermost-team-edition:latest
 # MM_TEST_IMAGE because docker-compose interpolates a tag, not a whole image.
 MM_VERSION ?= latest
 
+# Which build the cluster test runs against. Team Edition by default, because
+# that is what this plugin targets. The licensed HA test needs 'enterprise':
+# clustering is absent from the Team Edition binary, not merely switched off,
+# so no licence can enable it there.
+MM_EDITION ?= team
+
 ## Runs the integration tests, which start a real Mattermost server in a
 ## container, install this plugin into it and exercise it over HTTP. Docker must
 ## be running.
@@ -436,9 +442,9 @@ test-integration:
 ##   make test-cluster MM_VERSION=9.5
 .PHONY: test-cluster
 test-cluster:
-	docker pull --platform linux/amd64 mattermost/mattermost-team-edition:$(MM_VERSION)
+	docker pull --platform linux/amd64 mattermost/mattermost-$(MM_EDITION)-edition:$(MM_VERSION)
 	$(MAKE) dist DEFAULT_GOOS=linux DEFAULT_GOARCH=amd64
-	MM_VERSION=$(MM_VERSION) $(GO) test -tags cluster -count 1 -timeout 30m -v ./server/...
+	MM_VERSION=$(MM_VERSION) MM_EDITION=$(MM_EDITION) $(GO) test -tags cluster -count 1 -timeout 30m -v ./server/...
 
 ## Creates a coverage report for the server code.
 .PHONY: coverage

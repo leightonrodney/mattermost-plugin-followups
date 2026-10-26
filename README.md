@@ -253,14 +253,13 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
   they are not delivered automatically.
 - **Reminder delivery depends on the Follow-ups bot account.** If an
   administrator deactivates it, reminders stop arriving.
-- **Not verified on a licensed HA cluster.** Two real nodes *are* tested: two
-  Mattermost servers against one Postgres, each running its own copy of the
-  plugin, with reminders due at the same moment arriving exactly once. What is
-  not tested is a licensed deployment with a cluster bus, because Mattermost
-  gates clustering behind an Enterprise licence. The plugin does not use the
-  bus — its coordination is compare-and-set against the shared database — but
-  that is an argument, not a measurement. The test is written and skips until a
-  licence is supplied, so anyone holding one can settle it; see
+- **Verified on a two-node licensed cluster, not at scale.** Two Mattermost
+  servers against one Postgres, each running its own copy of the plugin, deliver
+  reminders due at the same moment exactly once. That runs in CI unlicensed, and
+  has been run once with clustering genuinely enabled on Enterprise Edition
+  12.0.1 — the two nodes joined one cluster over the gossip bus and the result
+  was unchanged, which is what the design predicts. What remains untested is
+  more than two nodes and anything resembling production load. See
   [docs/TESTING.md](docs/TESTING.md).
 - **Push is confirmed on iOS only.** That the server *asks* for a push, and
   that the request carries the reminder's own text, is checked automatically on
