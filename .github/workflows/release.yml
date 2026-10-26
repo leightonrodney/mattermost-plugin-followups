@@ -114,7 +114,30 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
+          set -euo pipefail
+          version="${TAG#v}"
+
+          # Semantic versioning says 0.y.z is unstable and that a hyphen suffix
+          # (1.0.0-rc.1) marks a pre-release. Either way GitHub should not
+          # advertise it as the latest release, because /releases/latest is what
+          # install instructions and scripts follow. v0.1.0 had to be corrected
+          # by hand after the fact; this is so the next one does not.
+          prerelease=""
+          case "$version" in
+            0.*|*-*) prerelease="--prerelease" ;;
+          esac
+
+          if [ -n "$prerelease" ]; then
+            echo "Publishing $TAG as a pre-release."
+          else
+            echo "Publishing $TAG as a full release."
+          fi
+
+          # $prerelease is deliberately unquoted: it is either one flag we chose
+          # just above or the empty string, which must expand to no argument.
+          # shellcheck disable=SC2086
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes \
+            $prerelease \
             dist/*.tar.gz dist/checksums.txt

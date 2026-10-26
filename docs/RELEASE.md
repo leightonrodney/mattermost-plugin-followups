@@ -11,6 +11,14 @@ tag and the manifest version disagree.
 - **Major** — anything that breaks an existing reminder, a stored record, or a
   documented command form.
 
+While the version is **0.x**, every release is published as a GitHub
+**pre-release**, and so is any tag carrying a semver suffix such as
+`v1.0.0-rc.1`. The workflow decides this from the tag itself, so there is
+nothing to remember and nothing to set by hand. The practical effect is that
+`/releases/latest` keeps pointing at the newest *stable* release, which is what
+install instructions and scripts follow; v0.1.0 had to be corrected after
+publication, which is why the rule exists.
+
 ## Before a release
 
 ```bash
@@ -93,10 +101,12 @@ generates `checksums.txt` and creates the GitHub release with both attached.
 Nothing publishes on a merge to `main`: a release only happens from a tag, or
 from a manual `workflow_dispatch`.
 
-Every step of that except the publish has been dry-run against a fresh clone —
-version check, tests, five-platform build, bundle validation, checksums. The
-publish itself has still never executed, so treat the first real release as
-something to watch rather than fire and forget.
+The whole workflow, publish included, ran for the first time on 26 October 2026
+for v0.1.0 and completed green: both gates, the tests, the five-platform build,
+the bundle check, the checksums and the publish. The published artifact was then
+downloaded, checked against `checksums.txt`, and installed on a clean server to
+confirm it activates. So this is no longer untested machinery — but a release is
+still worth watching rather than firing and forgetting.
 
 To repeat that dry run yourself:
 
