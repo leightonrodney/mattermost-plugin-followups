@@ -34,9 +34,9 @@ current plugin API.
 - **`/remind` with plain-English times.** `in 30 minutes`, `tomorrow at 9am`,
   `Friday at 2pm`, `2026-11-03 at 14:30`, `every weekday at 9:15`. The grammar
   is deterministic and documented below — no AI service is involved.
-- **Remind me about this message.** From any message's **…** menu. The reminder
-  keeps a link to the message, and only the link: the message text is never
-  copied into the plugin's storage.
+- **Remind me about this message.** From any message's **Actions** menu. The
+  reminder keeps a link to the message, and only the link: the message text is
+  never copied into the plugin's storage.
 - **Recurring reminders.** Daily, weekly, on chosen weekdays, monthly, or on a
   fixed interval. Daylight-saving transitions, short months and missed runs are
   all handled explicitly.
@@ -162,9 +162,14 @@ phrases as the slash command, and edit, snooze and cancel on every row.
 
 ### From a message
 
-Open a message's **…** menu and choose **Remind me**. Pick a preset or a
-specific time. The reminder links back to the message, and when it arrives the
-link is only included if you can still read that channel.
+Hover a message, open the **Actions** menu (the icon next to **…**) and choose
+**Remind me**. Pick a preset or a specific time. The reminder links back to the
+message, and when it arrives the link is only included if you can still read
+that channel.
+
+> Not the **…** menu. Mattermost puts plugin items in **Actions**, and the
+> **Remind** entry you will find under **…** is Mattermost's own one-off
+> reminder, not this plugin.
 
 ### When a reminder arrives
 

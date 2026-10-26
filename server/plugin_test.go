@@ -150,7 +150,11 @@ func newTestPlugin(t *testing.T, tweak ...func(*configuration)) *testPlugin {
 	api.On("GetTeamsForUser", mock.Anything).Return(
 		[]*model.Team{{Id: testTeamID, Name: "engineering"}}, (*model.AppError)(nil)).Maybe()
 	api.On("GetPost", mock.Anything).Return(
-		&model.Post{Id: "post0000000000000000000000", ChannelId: testChannelID}, (*model.AppError)(nil)).Maybe()
+		&model.Post{
+			Id:        "post0000000000000000000000",
+			ChannelId: testChannelID,
+			Message:   ":alarm_clock: **Reminder**\nthe original reminder text",
+		}, (*model.AppError)(nil)).Maybe()
 
 	conf := defaultConfiguration()
 	for _, apply := range tweak {
@@ -701,4 +705,72 @@ func assertNumericDefault(t *testing.T, defaults map[string]any, key string, got
 	number, ok := raw.(float64)
 	require.True(t, ok, "setting %q has a non-numeric default %v", key, raw)
 	assert.Equal(t, int(number), got, "default for %s", key)
+}
+
+// Pressing snooze or done replaces the delivered post. The server swaps in
+// whatever the response carries rather than merging, so a response with no
+// Message silently erases the reminder text and leaves the user looking at
+// "Postponed to 22:43" with no idea what for. Found by clicking the button on a
+// real server; these are the tests that would have caught it.
+func TestActionSnoozeKeepsTheReminderText(t *testing.T) {
+	tp := newTestPlugin(t)
+	rec := tp.createDue(t, testUserID, 2*time.Hour, "keep my text")
+
+	body := map[string]any{
+		"post_id": "post0000000000000000000000",
+		"context": map[string]any{contextReminderID: rec.ID, contextMinutes: 30},
+	}
+	response := tp.request(http.MethodPost, "/api/v1/actions/snooze", testUserID, body)
+	require.Equal(t, http.StatusOK, response.Code)
+
+	var decoded model.PostActionIntegrationResponse
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &decoded))
+
+	require.NotNil(t, decoded.Update, "the post must be updated to drop the buttons")
+	assert.Contains(t, decoded.Update.Message, "the original reminder text",
+		"the reminder text must survive the update")
+	assert.Contains(t, decoded.EphemeralText, "Postponed")
+}
+
+func TestActionCompleteKeepsTheReminderText(t *testing.T) {
+	tp := newTestPlugin(t)
+	rec := tp.createDue(t, testUserID, 2*time.Hour, "keep my text")
+
+	body := map[string]any{
+		"post_id": "post0000000000000000000000",
+		"context": map[string]any{contextReminderID: rec.ID},
+	}
+	response := tp.request(http.MethodPost, "/api/v1/actions/complete", testUserID, body)
+	require.Equal(t, http.StatusOK, response.Code)
+
+	var decoded model.PostActionIntegrationResponse
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &decoded))
+
+	require.NotNil(t, decoded.Update)
+	assert.Contains(t, decoded.Update.Message, "the original reminder text")
+}
+
+func TestActionReplacesTheButtons(t *testing.T) {
+	tp := newTestPlugin(t)
+	rec := tp.createDue(t, testUserID, 2*time.Hour, "no double snooze")
+
+	body := map[string]any{
+		"post_id": "post0000000000000000000000",
+		"context": map[string]any{contextReminderID: rec.ID, contextMinutes: 30},
+	}
+	response := tp.request(http.MethodPost, "/api/v1/actions/snooze", testUserID, body)
+	require.Equal(t, http.StatusOK, response.Code)
+
+	var decoded model.PostActionIntegrationResponse
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &decoded))
+
+	// The replacement carries a footer and no actions, so the same button
+	// cannot be pressed twice.
+	raw, err := json.Marshal(decoded.Update.GetProp(model.PostPropsAttachments))
+	require.NoError(t, err)
+	var attachments []model.MessageAttachment
+	require.NoError(t, json.Unmarshal(raw, &attachments))
+	require.Len(t, attachments, 1)
+	assert.Empty(t, attachments[0].Actions, "the buttons must be gone after the action")
+	assert.NotEmpty(t, attachments[0].Footer)
 }

@@ -143,8 +143,42 @@ func (p *Plugin) confirmation(rec *reminder.Reminder) string {
 	b.WriteString(formatTime(rec.DueTime()))
 	b.WriteString(".\n> ")
 	b.WriteString(rec.Message)
+
+	// "/remind @alice to review the PR" parses cleanly and quietly becomes a
+	// reminder to yourself whose text happens to start with a username. That
+	// looks like it worked, so say plainly that it did not do what it looks
+	// like. Reminding other people is not supported; see docs/ROADMAP.md for
+	// why it is not a small change.
+	if mentioned := leadingMention(rec.Message); mentioned != "" {
+		fmt.Fprintf(&b, "\n\n:information_source: Reminders are only ever sent to you — **@%s will not be notified**. "+
+			"If you meant to remind them, send them a message instead.", mentioned)
+	}
+
 	fmt.Fprintf(&b, "\n\nID `%s` — cancel it with `/remind cancel %s`.", shortID(rec.ID), shortID(rec.ID))
 	return b.String()
+}
+
+// leadingMention returns the username when a reminder's text opens with an
+// @mention, and an empty string otherwise.
+func leadingMention(message string) string {
+	if !strings.HasPrefix(message, "@") {
+		return ""
+	}
+	// Scanned from immediately after the @ rather than split into fields, so
+	// that "@ someone" is not read as a mention of someone.
+	isUsernameRune := func(r rune) bool {
+		return r == '.' || r == '-' || r == '_' ||
+			(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+	}
+
+	end := 0
+	for _, r := range message[1:] {
+		if !isUsernameRune(r) {
+			break
+		}
+		end++
+	}
+	return message[1 : 1+end]
 }
 
 // commandList shows the user's reminders.
@@ -357,7 +391,8 @@ func (p *Plugin) helpText() string {
 		"/remind delete <id>",
 		"```",
 		"",
-		"You can also set a reminder from any message: open its **...** menu and choose **Remind me**.",
+		"You can also set a reminder from any message: hover it, open the **Actions** menu and choose **Remind me**. " +
+			"That is the menu next to **...**, which holds Mattermost's own one-off reminder instead.",
 		"",
 		fmt.Sprintf("_On this server you can hold up to %d reminders, %d of them repeating, scheduled at least %s out and at most %s ahead._",
 			config.ReminderLimit(), config.RecurringLimit(), humanDuration(config.MinInterval()), humanDuration(config.MaxHorizon())),

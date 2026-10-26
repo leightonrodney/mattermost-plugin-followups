@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mattermost-dev",
+      "url": "http://localhost:8065",
+      "port": 8065
+    }
+  ]
+}

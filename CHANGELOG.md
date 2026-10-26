@@ -25,7 +25,7 @@ First release.
   `every month on the 15th`, `every 2 hours`.
 - **Reminder management** from the command: `list`, `snooze`, `cancel`,
   `delete`, `help`.
-- **"Remind me" on any message**, from the post's **…** menu. The reminder keeps
+- **"Remind me" on any message**, from the post's **Actions** menu. The reminder keeps
   a link to the message; the message text is not copied into storage.
 - **A sidebar**, opened from the channel header, with Upcoming, Repeating and
   Done tabs, a quick-add box that takes the same phrases as the command, and

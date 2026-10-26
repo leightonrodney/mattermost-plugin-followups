@@ -50,3 +50,31 @@ func TestAutocompleteCoversTheDocumentedSubcommands(t *testing.T) {
 		assert.True(t, triggers[expected], "autocomplete is missing the documented subcommand %q", expected)
 	}
 }
+
+// "/remind @alice to review the PR" parses perfectly well and becomes a
+// reminder to yourself whose text starts with a username. Nothing is wrong with
+// it mechanically, which is the problem: it looks like it reminded Alice.
+//
+// Found by watching someone try exactly that on a real server.
+func TestLeadingMention(t *testing.T) {
+	tests := []struct {
+		message string
+		want    string
+	}{
+		{"@tester to stand up", "tester"},
+		{"@alice.smith review the PR", "alice.smith"},
+		{"@bob-jones check the deploy", "bob-jones"},
+		{"@carol_7 ping back", "carol_7"},
+		{"@dave", "dave"},
+		{"ask @erin about the migration", ""},
+		{"check the build", ""},
+		{"@", ""},
+		{"@ someone", ""},
+	}
+
+	for _, test := range tests {
+		t.Run(test.message, func(t *testing.T) {
+			assert.Equal(t, test.want, leadingMention(test.message))
+		})
+	}
+}

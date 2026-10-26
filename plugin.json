@@ -21,7 +21,7 @@
         "bundle_path": "webapp/dist/main.js"
     },
     "settings_schema": {
-        "header": "Create one-time and recurring reminders with the **/remind** slash command, or from any message's **...** menu. Reminders are delivered as direct messages from the Follow-ups bot and are stored in this plugin's key-value store \u2014 no external service is contacted.",
+        "header": "Create one-time and recurring reminders with the **/remind** slash command, or from any message's **Actions** menu. Reminders are delivered as direct messages from the Follow-ups bot and are stored in this plugin's key-value store \u2014 no external service is contacted.",
         "footer": "Changes to every setting take effect immediately, except **Scheduler interval**, which is applied on the next scheduler tick. See the [documentation](https://github.com/leightonrodney/mattermost-plugin-followups#configuration) for details.",
         "settings": [
             {

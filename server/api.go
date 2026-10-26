@@ -477,11 +477,11 @@ func (p *Plugin) handleActionSnooze(w http.ResponseWriter, r *http.Request) {
 
 	rec, err := p.service.Snooze(userID, reminderID, duration)
 	if err != nil {
-		p.respondToAction(w, r, err, "")
+		p.respondToAction(w, r, request.PostId, err, "")
 		return
 	}
 
-	p.respondToAction(w, r, nil, fmt.Sprintf(":alarm_clock: Postponed to %s.", formatTime(rec.DueTime())))
+	p.respondToAction(w, r, request.PostId, nil, fmt.Sprintf(":alarm_clock: Postponed to %s.", formatTime(rec.DueTime())))
 }
 
 // handleActionComplete backs the done button on a delivered reminder.
@@ -500,15 +500,20 @@ func (p *Plugin) handleActionComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := p.service.Complete(userID, reminderID); err != nil {
-		p.respondToAction(w, r, err, "")
+		p.respondToAction(w, r, request.PostId, err, "")
 		return
 	}
-	p.respondToAction(w, r, nil, ":white_check_mark: Done.")
+	p.respondToAction(w, r, request.PostId, nil, ":white_check_mark: Done.")
 }
 
 // respondToAction replaces the buttons on the delivered post with the outcome,
 // so that a reminder cannot be snoozed twice by pressing the same button again.
-func (p *Plugin) respondToAction(w http.ResponseWriter, r *http.Request, err error, text string) {
+//
+// postID is the post the button was on. Its message is carried over deliberately:
+// the server replaces the post with whatever Update contains rather than merging
+// into it, so returning a post with no Message would wipe the reminder text and
+// leave the user with "Postponed to 22:43" and no idea what for.
+func (p *Plugin) respondToAction(w http.ResponseWriter, r *http.Request, postID string, err error, text string) {
 	if err != nil {
 		message := "Something went wrong."
 		if IsUserFacing(err) {
@@ -521,6 +526,9 @@ func (p *Plugin) respondToAction(w http.ResponseWriter, r *http.Request, err err
 	}
 
 	post := &model.Post{}
+	if original, getErr := p.client.Post.GetPost(postID); getErr == nil && original != nil {
+		post.Message = original.Message
+	}
 	post.AddProp(model.PostPropsAttachments, []*model.MessageAttachment{{Footer: text}})
 
 	writeJSON(w, http.StatusOK, &model.PostActionIntegrationResponse{
