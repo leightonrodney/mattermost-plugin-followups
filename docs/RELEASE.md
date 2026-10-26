@@ -170,8 +170,11 @@ important events at levels an administrator can act on. There is no public tool
 to demonstrate the first; [docs/TESTING.md](TESTING.md) records what the
 multi-node tests do and do not prove.
 
-Then open the issue against `mattermost-marketplace` from its "Add plugin"
-template. Expect to answer questions about security and about what data the
+The text for that issue is already written, in
+[MARKETPLACE-SUBMISSION.md](MARKETPLACE-SUBMISSION.md): every checklist item
+answered, the gaps stated up front rather than left for a reviewer to find, and
+nothing submitted. Review it, then open the issue against
+`mattermost-marketplace` from its "Add plugin" template. Expect to answer questions about security and about what data the
 plugin stores; [ARCHITECTURE.md](ARCHITECTURE.md) has both.
 
 **Do not submit without the owner's authorisation.** Publishing a release and
