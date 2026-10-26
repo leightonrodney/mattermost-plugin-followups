@@ -12,12 +12,12 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,7 +35,7 @@ func apiRequest(t *testing.T, th *testhelper.TestHelper, client *model.Client4, 
 	if body != nil {
 		encoded, err := json.Marshal(body)
 		require.NoError(t, err)
-		payload = bytes.NewReader(encoded)
+		payload = strings.NewReader(string(encoded))
 	}
 
 	url := fmt.Sprintf("%s/plugins/%s/api/v1%s", th.ServerURL, testhelper.PluginID(), path)
@@ -207,15 +207,15 @@ func TestADueReminderIsDelivered(t *testing.T) {
 	assert.Contains(t, string(body), `"status":"delivered"`)
 }
 
-// findDeliveredReminder reports whether the plugin's bot has sent the user a
-// direct message containing the given text.
-func findDeliveredReminder(t *testing.T, th *testhelper.TestHelper, text string) bool {
+// findReminderPost returns the bot's direct message containing the given text,
+// or nil if it has not arrived.
+func findReminderPost(t *testing.T, th *testhelper.TestHelper, text string) *model.Post {
 	t.Helper()
 	ctx := context.WithoutCancel(t.Context())
 
 	bots, _, err := th.AdminClient.GetBots(ctx, 0, 100, "")
 	if err != nil {
-		return false
+		return nil
 	}
 
 	for _, bot := range bots {
@@ -225,18 +225,216 @@ func findDeliveredReminder(t *testing.T, th *testhelper.TestHelper, text string)
 
 		channel, _, err := th.Client.CreateDirectChannel(ctx, th.User.Id, bot.UserId)
 		if err != nil {
-			return false
+			return nil
 		}
 
 		posts, _, err := th.Client.GetPostsForChannel(ctx, channel.Id, 0, 60, "", false, false)
 		if err != nil {
-			return false
+			return nil
 		}
 		for _, post := range posts.Posts {
-			if bytes.Contains([]byte(post.Message), []byte(text)) {
-				return true
+			if strings.Contains(post.Message, text) {
+				return post
 			}
 		}
 	}
-	return false
+	return nil
+}
+
+// findDeliveredReminder reports whether the reminder has arrived.
+func findDeliveredReminder(t *testing.T, th *testhelper.TestHelper, text string) bool {
+	t.Helper()
+	return findReminderPost(t, th, text) != nil
+}
+
+// waitForReminder polls until the reminder arrives, or fails the test.
+func waitForReminder(t *testing.T, th *testhelper.TestHelper, text string, within time.Duration) *model.Post {
+	t.Helper()
+
+	deadline := time.Now().Add(within)
+	for time.Now().Before(deadline) {
+		if post := findReminderPost(t, th, text); post != nil {
+			return post
+		}
+		time.Sleep(5 * time.Second)
+	}
+	t.Fatalf("the reminder %q never arrived within %s", text, within)
+	return nil
+}
+
+// fastScheduler tightens the plugin's timings so a test does not have to wait
+// out the defaults, which are tuned for people rather than for test suites.
+func fastScheduler(t *testing.T, th *testhelper.TestHelper) {
+	t.Helper()
+	configurePlugin(t, th, map[string]any{
+		"EnableScheduler":          true,
+		"SchedulerIntervalSeconds": 10,
+		"MinIntervalSeconds":       30,
+		"MaxRemindersPerUser":      100,
+		"MaxHorizonDays":           730,
+		"CompletedRetentionDays":   30,
+	})
+}
+
+// The checks below replace items that used to sit on the manual pre-release
+// checklist in docs/RELEASE.md. Each one is a thing a person was expected to
+// remember to try by hand, which is to say a thing that would eventually get
+// skipped on a Friday.
+
+// A pending reminder has to survive the plugin being switched off and on, which
+// is what an upgrade looks like. Nothing is held in memory: the reminder, the
+// hour index and the scheduler cursor are all in the key-value store, and this
+// is the only test anywhere that proves it against a real server rather than by
+// rebuilding the plugin struct in-process.
+func TestAPendingReminderSurvivesAPluginRestart(t *testing.T) {
+	th := testhelper.Setup(t)
+	ctx := t.Context()
+	fastScheduler(t, th)
+
+	dueAt := time.Now().Add(40 * time.Second).UnixMilli()
+	status, body := apiRequest(t, th, th.Client, http.MethodPost, "/reminders", map[string]any{
+		"message": "survive the restart",
+		"due_at":  dueAt,
+	})
+	require.Equal(t, http.StatusCreated, status, string(body))
+
+	// Off before it is due, so it cannot have been delivered already.
+	_, err := th.AdminClient.DisablePlugin(ctx, testhelper.PluginID())
+	require.NoError(t, err)
+	require.False(t, findDeliveredReminder(t, th, "survive the restart"),
+		"it was not due yet, so nothing should have been sent")
+
+	// Stay off until well past the due time.
+	time.Sleep(60 * time.Second)
+	require.False(t, findDeliveredReminder(t, th, "survive the restart"),
+		"a disabled plugin must not deliver")
+
+	_, err = th.AdminClient.EnablePlugin(ctx, testhelper.PluginID())
+	require.NoError(t, err)
+
+	waitForReminder(t, th, "survive the restart", 3*time.Minute)
+}
+
+// Pressing a snooze button on a delivered reminder, through the server's own
+// interactive action endpoint rather than by calling the plugin directly.
+func TestSnoozeButtonReschedulesOnARealServer(t *testing.T) {
+	th := testhelper.Setup(t)
+	ctx := t.Context()
+	fastScheduler(t, th)
+
+	status, body := apiRequest(t, th, th.Client, http.MethodPost, "/reminders", map[string]any{
+		"message": "press my buttons",
+		"due_at":  time.Now().Add(35 * time.Second).UnixMilli(),
+	})
+	require.Equal(t, http.StatusCreated, status, string(body))
+
+	post := waitForReminder(t, th, "press my buttons", 3*time.Minute)
+
+	// Read the action the user would click.
+	attachments, ok := post.GetProp(model.PostPropsAttachments).([]any)
+	require.True(t, ok, "the delivered post should carry an attachment with buttons")
+	require.NotEmpty(t, attachments)
+
+	first, ok := attachments[0].(map[string]any)
+	require.True(t, ok)
+	actions, ok := first["actions"].([]any)
+	require.True(t, ok)
+	require.NotEmpty(t, actions, "there should be snooze buttons to press")
+
+	action, ok := actions[0].(map[string]any)
+	require.True(t, ok)
+	actionID, ok := action["id"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, actionID)
+
+	_, err := th.Client.DoPostAction(ctx, post.Id, actionID)
+	require.NoError(t, err, "pressing the button should be accepted")
+
+	// The reminder goes back to scheduled, and the post keeps its text.
+	require.Eventually(t, func() bool {
+		_, listed := apiRequest(t, th, th.Client, http.MethodGet, "/reminders", nil)
+		return strings.Contains(string(listed), `"status":"scheduled"`)
+	}, 30*time.Second, 2*time.Second, "snoozing should put the reminder back on the schedule")
+
+	updated := findReminderPost(t, th, "press my buttons")
+	require.NotNil(t, updated, "the reminder text must survive the update")
+}
+
+// An administrator changing a limit has to take effect without a restart.
+func TestAdministratorLimitsTakeEffectImmediately(t *testing.T) {
+	th := testhelper.Setup(t)
+
+	configurePlugin(t, th, map[string]any{
+		"EnableScheduler":     true,
+		"MaxRemindersPerUser": 1,
+		"MinIntervalSeconds":  60,
+		"MaxHorizonDays":      730,
+	})
+
+	status, _ := apiRequest(t, th, th.Client, http.MethodPost, "/reminders",
+		map[string]any{"text": "me in 2 hours to be the only one"})
+	require.Equal(t, http.StatusCreated, status)
+
+	status, body := apiRequest(t, th, th.Client, http.MethodPost, "/reminders",
+		map[string]any{"text": "me in 3 hours to be refused"})
+	require.Equal(t, http.StatusBadRequest, status, "the second should hit the limit of one")
+	assert.Contains(t, string(body), "limit")
+
+	// Raising the limit takes effect without restarting anything.
+	configurePlugin(t, th, map[string]any{
+		"EnableScheduler":     true,
+		"MaxRemindersPerUser": 10,
+		"MinIntervalSeconds":  60,
+		"MaxHorizonDays":      730,
+	})
+
+	status, body = apiRequest(t, th, th.Client, http.MethodPost, "/reminders",
+		map[string]any{"text": "me in 3 hours to be allowed now"})
+	assert.Equal(t, http.StatusCreated, status, string(body))
+}
+
+// The whole command surface, which used to be four lines of the manual list.
+func TestTheCommandSurfaceWorks(t *testing.T) {
+	th := testhelper.Setup(t)
+	ctx := t.Context()
+
+	created, _, err := th.Client.ExecuteCommand(ctx, th.Channel.Id, "/remind me in 2 hours to check the build")
+	require.NoError(t, err)
+	require.Contains(t, created.Text, "I'll remind you")
+
+	// The confirmation carries the short ID the other subcommands take.
+	id := shortIDFromResponse(t, created.Text)
+
+	listed, _, err := th.Client.ExecuteCommand(ctx, th.Channel.Id, "/remind list")
+	require.NoError(t, err)
+	assert.Contains(t, listed.Text, "check the build")
+	assert.Contains(t, listed.Text, "Upcoming")
+
+	helped, _, err := th.Client.ExecuteCommand(ctx, th.Channel.Id, "/remind help")
+	require.NoError(t, err)
+	assert.Contains(t, helped.Text, "/remind me in 30 minutes")
+	assert.Contains(t, helped.Text, "Actions")
+
+	snoozed, _, err := th.Client.ExecuteCommand(ctx, th.Channel.Id, "/remind snooze "+id+" 3 hours")
+	require.NoError(t, err)
+	assert.Contains(t, snoozed.Text, "Postponed")
+
+	cancelled, _, err := th.Client.ExecuteCommand(ctx, th.Channel.Id, "/remind cancel "+id)
+	require.NoError(t, err)
+	assert.Contains(t, cancelled.Text, "Cancelled")
+
+	after, _, err := th.Client.ExecuteCommand(ctx, th.Channel.Id, "/remind list")
+	require.NoError(t, err)
+	assert.Contains(t, after.Text, "cancelled")
+}
+
+// shortIDFromResponse digs the reminder's short ID out of a confirmation.
+func shortIDFromResponse(t *testing.T, text string) string {
+	t.Helper()
+	_, after, found := strings.Cut(text, "ID `")
+	require.True(t, found, "the confirmation should name the reminder's ID: %s", text)
+	id, _, found := strings.Cut(after, "`")
+	require.True(t, found)
+	require.NotEmpty(t, id)
+	return id
 }

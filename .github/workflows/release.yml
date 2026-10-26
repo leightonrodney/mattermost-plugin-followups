@@ -58,6 +58,39 @@ jobs:
             exit 1
           fi
 
+      # Forgetting the changelog is the easiest mistake to make at release time
+      # and the most annoying to correct afterwards, because the release notes
+      # are already out. Checked before anything is built.
+      - name: Check the changelog has an entry for this version
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          version="${tag#v}"
+
+          heading="$(grep -E "^## \[${version}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md || true)"
+          if [ -z "$heading" ]; then
+            echo "CHANGELOG.md has no '## [${version}] - YYYY-MM-DD' heading."
+            echo "Add one, dated the day you are releasing."
+            exit 1
+          fi
+          echo "found: $heading"
+
+          # A date left over from drafting is worse than none, because it is
+          # believed. Today or yesterday is fine; anything else is a leftover.
+          dated="${heading##*- }"
+          today="$(date -u +%F)"
+          yesterday="$(date -u -d yesterday +%F 2>/dev/null || date -u -v-1d +%F)"
+          if [ "$dated" != "$today" ] && [ "$dated" != "$yesterday" ]; then
+            echo "The changelog dates ${version} as ${dated}, but today is ${today}."
+            echo "Update it to the day you are actually releasing."
+            exit 1
+          fi
+
+          if ! grep -qE "^## \[Unreleased\]" CHANGELOG.md; then
+            echo "CHANGELOG.md has no Unreleased section for work after this release."
+            exit 1
+          fi
+
       - name: Run the tests
         run: |
           make apply

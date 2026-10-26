@@ -26,20 +26,45 @@ CI already runs the integration suite against 9.5 and latest on every push to
 worth doing before a release, because it is cheap and because a release is a
 bad moment to discover that the green tick was from three commits ago.
 
-Then, by hand on a real server, because no automated test covers these:
+Most of what used to be a manual checklist here is now in the integration
+suite, because a list of things to remember on a Friday afternoon is a list of
+things that get skipped. `make test-integration` covers:
 
-- [ ] Upload the bundle through **System Console → Plugins** and enable it.
-- [ ] `/remind me in 2 minutes to test` — confirm the ephemeral reply, then that
-      the direct message actually arrives.
-- [ ] `/remind list`, `/remind snooze`, `/remind cancel`, `/remind help`.
-- [ ] **Remind me** on a message; confirm the delivered reminder links back.
-- [ ] The sidebar: all three tabs, add, edit, snooze, cancel.
-- [ ] The snooze and dismiss buttons on a delivered reminder.
-- [ ] Switch to a dark theme and check the dialog and sidebar.
-- [ ] Check a reminder arrives on a mobile client.
-- [ ] Change a setting in the System Console and confirm it takes effect.
-- [ ] Disable the plugin, re-enable it, and confirm a pending reminder still
-      fires.
+| Was a manual step | Now |
+|:--|:--|
+| Upload the bundle and enable it | `TestPluginIsInstalledAndRespondsToItsAPI` |
+| `/remind` creates a reminder and it arrives | `TestADueReminderIsDelivered` |
+| `list`, `snooze`, `cancel`, `help` all respond | `TestTheCommandSurfaceWorks` |
+| The snooze buttons on a delivered reminder work | `TestSnoozeButtonReschedulesOnARealServer` |
+| Changing a setting takes effect without a restart | `TestAdministratorLimitsTakeEffectImmediately` |
+| Disable, re-enable, a pending reminder still fires | `TestAPendingReminderSurvivesAPluginRestart` |
+| One user cannot see another's reminders | `TestRemindersAreNotVisibleToOtherUsers` |
+
+That last restart check is the one worth knowing about. It switches the plugin
+off before a reminder is due, leaves it off until well past the due time,
+switches it back on, and waits for delivery. Nothing is held in memory, so it
+passes only if the reminder, the hour index and the scheduler cursor all came
+back from the database — which is the claim the whole scheduling design rests
+on, and the only test anywhere that proves it against a real server.
+
+**What still has to be done by hand**, because it is visual or needs a device:
+
+- [ ] **The webapp.** Open the sidebar, move through all three tabs, add a
+      reminder from the box, edit one, snooze one, cancel one. Then **Remind me**
+      from a message's **Actions** menu, and check the delivered reminder links
+      back to it.
+- [ ] **A dark theme.** Switch to Onyx and look at the dialog and the sidebar.
+      A test asserts no colour is hard-coded, which is not the same as the
+      result being readable.
+- [ ] **A mobile client.** Confirm a reminder arrives as a push notification.
+      The suite checks the post is the kind the server will notify about; it
+      cannot check that a phone buzzes.
+
+Three items rather than ten, and none of them is something an automated test
+could have covered. Every bug found in this plugin so far came from exactly this
+kind of use, so it is worth the twenty minutes.
+
+`make dev-server` brings up a server to do it on.
 
 ## Cutting the release
 
