@@ -28,13 +28,13 @@ reason.
 Everything in this section was executed on 25 October 2026 on macOS (arm64) with
 Go 1.27.3 and Node 24.19.0, unless stated otherwise.
 
-### Server — 85 tests, 180 including subtests, all passing under `-race`
+### Server — all passing under `-race`
 
-| Package | Tests | What it covers |
-|:--|:--|:--|
-| `server/reminder` | 21 (91 with subtests) | Date and time parsing, recurrence arithmetic, daylight saving, validation |
-| `server/store` | 18 | Key-value records, the due index, the cursor, concurrency |
-| `server` | 46 (71 with subtests) | Quotas, ownership, the delivery protocol, the scheduler, the HTTP API, interactive buttons, configuration |
+| Package | What it covers |
+|:--|:--|
+| `server/reminder` | Date and time parsing, recurrence arithmetic, daylight saving, validation |
+| `server/store` | Key-value records, the due index, the cursor, concurrency |
+| `server` | Quotas, ownership, the delivery protocol, the scheduler, multiple nodes, notification eligibility, the HTTP API, interactive buttons, configuration |
 
 Specifically:
 
@@ -81,6 +81,31 @@ occurrence; that a claim within its window is not stolen and one past its
 timeout is reclaimed; that a cancelled reminder is never delivered; that a
 delivered one-off does not fire again; that a repeating one is advanced and
 re-indexed; that failures back off, retry, and stop after the attempt limit.
+
+**Multiple nodes** — several plugin instances, each with its own client,
+store, service and configuration, sharing one key-value store. That is what a
+cluster looks like to this plugin: separate process memory, one database. The
+tests run the sweeps *concurrently on purpose*, which production avoids by
+holding a cluster-wide lock — the point is to exercise the per-reminder
+compare-and-set claiming that is the backstop when that lock's 15-second lease
+lapses under a stalled node. Four nodes sweeping the same hour deliver once;
+twenty reminders across four users are each delivered exactly once; a recurring
+series advances one step, not three; the cursor is shared so a second node does
+not re-sweep; and a node that claims a reminder then dies has it reclaimed by
+another once the claim goes stale, rather than stranding it.
+
+This needs no Enterprise licence, because `cluster.Mutex` depends on
+`KVSetWithOptions` and nothing else — the coordination is compare-and-set
+against the shared database, with no cluster bus involved.
+
+**Delivery as a notification** — the plugin cannot make a push notification
+happen; the server decides that from each person's settings. What it is
+responsible for is checkable, and these assert it: delivery is a persisted post
+and not an ephemeral one, it comes from the bot into a direct channel, it is not
+a `system_*` post type, its text is in the message body rather than only in an
+attachment, and the snooze buttons stay out of the body. Each of those could
+stop being true without any other test noticing, because nothing else looks at
+*how* the post is made. Switching delivery to `SendEphemeralPost` fails all five.
 
 **Scheduler** — delivering a due reminder; not delivering one that is not due;
 delivering only once across five runs of the same sweep; delivering only once
@@ -229,7 +254,15 @@ between tests, and the delivery test waits for a real scheduler tick.
 
 **Still not verified:**
 
-- Behaviour on a multi-node cluster. The design uses `cluster.Schedule` and
+- **A real multi-node Mattermost cluster.** The tests above simulate one by
+  sharing a key-value store between plugin instances, which is the mechanism the
+  plugin actually depends on, but it is not a licensed HA deployment and the
+  cluster bus is absent. The next step up would be two Mattermost containers
+  against one Postgres; see docs/ROADMAP.md.
+- **Push notifications reaching a device.** The tests above check that a
+  reminder is the kind of post the server will consider for notification, not
+  that one arrives. Proving that end to end needs a push proxy stub, and beyond
+  that APNs or FCM and a real handset. The design uses `cluster.Schedule` and
   per-reminder compare-and-set claiming for exactly this case, and the
   concurrency is tested in-process, but it has not been run against two real
   nodes.

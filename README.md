@@ -253,10 +253,15 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
   they are not delivered automatically.
 - **Reminder delivery depends on the Follow-ups bot account.** If an
   administrator deactivates it, reminders stop arriving.
-- **Not verified on a multi-node cluster.** The integration suite installs the
-  plugin into a real server and checks that a reminder is genuinely delivered,
-  and it passes at both ends of the supported range — 9.5 and 12.0.1 — but it
-  runs against a single node. See [docs/TESTING.md](docs/TESTING.md).
+- **Not verified on a real multi-node cluster.** The integration suite installs
+  the plugin into a real server and checks that a reminder is genuinely
+  delivered, at both ends of the supported range — 9.5 and 12.0.1 — but against
+  a single node. The coordination a cluster relies on is tested by sharing a
+  key-value store between plugin instances, which exercises the mechanism but is
+  not a licensed HA deployment. See [docs/TESTING.md](docs/TESTING.md).
+- **Push notifications are not verified end to end.** Reminders are ordinary
+  direct messages and are tested to be the kind of post the server will notify
+  about, but no test watches one arrive on a device.
 
 ## Contributing
 

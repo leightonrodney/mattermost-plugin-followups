@@ -71,6 +71,10 @@ type testPlugin struct {
 
 	postsMu sync.Mutex
 	posts   []*model.Post
+
+	// Ephemeral posts are recorded separately because a reminder delivered as
+	// one would never reach a phone, and would otherwise look identical.
+	ephemeral []*model.Post
 }
 
 const (
@@ -122,7 +126,15 @@ func newTestPlugin(t *testing.T, tweak ...func(*configuration)) *testPlugin {
 	).Maybe()
 
 	api.On("GetDirectChannel", mock.Anything, mock.Anything).Return(
-		&model.Channel{Id: "dmchannel00000000000000000"}, (*model.AppError)(nil)).Maybe()
+		&model.Channel{Id: "dmchannel00000000000000000", Type: model.ChannelTypeDirect}, (*model.AppError)(nil)).Maybe()
+
+	api.On("SendEphemeralPost", mock.Anything, mock.AnythingOfType("*model.Post")).Return(
+		func(_ string, post *model.Post) *model.Post {
+			tp.postsMu.Lock()
+			defer tp.postsMu.Unlock()
+			tp.ephemeral = append(tp.ephemeral, post)
+			return post
+		}).Maybe()
 
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(
 		func(post *model.Post) *model.Post {
@@ -178,6 +190,32 @@ func (tp *testPlugin) deliveredPosts() []*model.Post {
 	tp.postsMu.Lock()
 	defer tp.postsMu.Unlock()
 	return append([]*model.Post(nil), tp.posts...)
+}
+
+func (tp *testPlugin) ephemeralPosts() []*model.Post {
+	tp.postsMu.Lock()
+	defer tp.postsMu.Unlock()
+	return append([]*model.Post(nil), tp.ephemeral...)
+}
+
+// newPeer builds a second plugin instance against the same server API, and so
+// the same key-value store, with its own client, store, service and
+// configuration.
+//
+// That is what a second node in a cluster is: separate process memory, one
+// shared database. Reusing the same testPlugin would share the in-memory state
+// too and prove nothing about coordination.
+func (tp *testPlugin) newPeer() *Plugin {
+	peer := &Plugin{}
+	peer.SetAPI(tp.api)
+	peer.client = pluginapi.NewClient(tp.api, nil)
+	peer.botID = testBotID
+	peer.store = store.New(&peer.client.KV)
+	peer.service = newService(peer.store, &peer.client.User, peer.getConfiguration)
+	peer.service.now = tp.clock.Now
+	peer.configuration.set(tp.getConfiguration())
+	peer.router = peer.newRouter()
+	return peer
 }
 
 // runSchedulerAt runs one scheduler pass as if it were the given moment.
