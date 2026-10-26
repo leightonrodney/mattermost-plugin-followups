@@ -47,18 +47,21 @@ passes only if the reminder, the hour index and the scheduler cursor all came
 back from the database — which is the claim the whole scheduling design rests
 on, and the only test anywhere that proves it against a real server.
 
-**What still has to be done by hand**, because it is visual or needs a device:
+**What has to be done by hand**, because it is visual or needs a device. All
+three were done for 0.1.0, on the dates noted; repeat them for any release that
+touches the webapp or the delivery path:
 
-- [ ] **The webapp.** Open the sidebar, move through all three tabs, add a
+- [x] **The webapp.** Open the sidebar, move through all three tabs, add a
       reminder from the box, edit one, snooze one, cancel one. Then **Remind me**
       from a message's **Actions** menu, and check the delivered reminder links
-      back to it.
-- [ ] **A dark theme.** Switch to Onyx and look at the dialog and the sidebar.
+      back to it. Done on 26 October 2026 against Team Edition in a desktop
+      browser.
+- [x] **A dark theme.** Switch to Onyx and look at the dialog and the sidebar.
       A test asserts no colour is hard-coded, which is not the same as the
       result being readable. Contrast was measured on 26 October 2026 and every
       element clears WCAG AA except the primary button, which matches
       Mattermost's own; see docs/TESTING.md.
-- [ ] **A mobile client.** Confirm a reminder arrives as a push notification.
+- [x] **A mobile client.** Confirm a reminder arrives as a push notification.
       The suite checks the post is the kind the server will notify about; it
       cannot check that a phone buzzes. Done once on iOS, 26 October 2026 —
       see docs/TESTING.md, including why an empty server log proves nothing
@@ -119,20 +122,22 @@ Submission is a pull request to that repository, not an upload.
 
 Before submitting, the plugin needs:
 
-- [ ] A public GitHub repository with an OSI-approved licence — **done**, MIT.
+- [x] A public GitHub repository with an OSI-approved licence — **done**, MIT.
 - [ ] A tagged GitHub release with the bundle attached — produced by the release
       workflow.
-- [ ] A complete `plugin.json`: `id`, `name`, `description`, `version`,
+- [x] A complete `plugin.json`: `id`, `name`, `description`, `version`,
       `min_server_version`, `homepage_url`, `support_url`, `release_notes_url`,
       `icon_path` — **done**, all present.
-- [ ] An SVG icon — **done**, `assets/icon.svg`.
-- [ ] A README with installation and usage instructions — **done**.
-- [ ] **Screenshots.** Not yet captured. The Marketplace listing wants images of
-      the plugin in use; take them from a real installation.
-- [ ] **Verification against the supported server versions.** The declared
-      `min_server_version` of 9.5.0 is derived from API availability, not from
-      testing against each release. Run the integration suite against the
-      oldest supported server before submitting.
+- [x] An SVG icon — **done**, `assets/icon.svg`.
+- [x] A README with installation and usage instructions — **done**.
+- [x] **Screenshots.** Done — five are in `docs/images/` and embedded in the
+      README: the Actions menu, the reminder dialog, the sidebar in the light
+      and dark themes, and a delivered reminder. All were taken from a real
+      installation carrying sample reminders.
+- [x] **Verification against the supported server versions.** The declared
+      `min_server_version` of 9.5.0 began as a reading of API availability and
+      is now tested: the integration suite runs in CI against both 9.5 and
+      latest on every push, and passed against both on 26 October 2026.
 - [ ] A signed bundle, if Mattermost requires one at the time of submission.
 
 Then open the pull request against `mattermost-marketplace` adding the plugin to
