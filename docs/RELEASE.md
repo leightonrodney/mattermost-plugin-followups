@@ -127,8 +127,8 @@ it privately, and cuts and signs the release itself.
 Before submitting, the plugin needs:
 
 - [x] A public GitHub repository with an OSI-approved licence — **done**, MIT.
-- [ ] A tagged GitHub release with the bundle attached — produced by the release
-      workflow.
+- [x] A tagged GitHub release with the bundle attached — **done**, v0.1.0,
+      published by the release workflow on 26 October 2026.
 - [x] A complete `plugin.json`: `id`, `name`, `description`, `version`,
       `min_server_version`, `homepage_url`, `support_url`, `release_notes_url`,
       `icon_path` — **done**, all present.
@@ -176,6 +176,23 @@ pull requests; replace that with a written summary for anything beyond a patch.
 
 ## After a release
 
-- [ ] Download the published bundle and check it against `checksums.txt`.
-- [ ] Install that exact artifact on a clean server and confirm it activates.
-- [ ] Open the next `## Unreleased` section in `CHANGELOG.md`.
+- [x] Download the published bundle and check it against `checksums.txt`.
+      Done for 0.1.0: the SHA-256 of the downloaded archive matched the
+      published `checksums.txt` exactly.
+- [x] Install that exact artifact on a clean server and confirm it activates.
+      Done for 0.1.0, on a throwaway Team Edition server that had never seen
+      this plugin. The log records `Follow-ups activated` with a bot user ID,
+      `Plugin activated version=0.1.0`, and the scheduler establishing its
+      cursor; the bot account exists, and the plugin's API answers an
+      unauthenticated request with 401 rather than 404, which is what shows the
+      handler is actually serving. Activation succeeding at all is also the
+      check that catches an invalid autocomplete definition, which once stopped
+      the plugin starting on every server while CI stayed green.
+- [x] Open the next `## Unreleased` section in `CHANGELOG.md` — already present
+      above the released heading, so there was nothing to add.
+
+One thing the install surfaces, worth not misreading: the server logs
+`No signature when persisting plugin to filestore` at warn level. That is
+expected for a bundle installed by hand and is not an error. Signature checks
+apply to Marketplace and pre-packaged installs, not to an administrator
+uploading a file.
